@@ -1,0 +1,25 @@
+# ==============================================================================
+# MOHEET | مُحِيط — Backend Dockerfile (Development)
+# ==============================================================================
+FROM node:20-alpine AS development
+
+# تثبيت الأدوات الضرورية
+RUN apk add --no-cache curl
+
+# تعيين مجلد العمل داخل الحاوية
+WORKDIR /app
+
+# نسخ ملفات الاعتمادات أولاً (لاستغلال Docker cache)
+COPY package*.json ./
+
+# تثبيت جميع الاعتمادات (بما فيها devDependencies)
+RUN npm install
+
+# نسخ باقي الكود (سيُستبدَل بالـ Volume في docker-compose)
+COPY . .
+
+# المنفذ الذي يستمع عليه NestJS
+EXPOSE 3000
+
+# أمر التشغيل الافتراضي (يُستبدَل بـ command في docker-compose)
+CMD ["npm", "run", "start:dev"]

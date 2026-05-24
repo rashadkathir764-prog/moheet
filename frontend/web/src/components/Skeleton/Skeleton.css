@@ -1,0 +1,174 @@
+/* ════════════════════════════════════════════════════════════
+   Moheet Skeleton Loaders — shimmer animation, RTL-compatible
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Base shimmer keyframe (RTL: direction right → left) ─── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #e2e8f0 25%,
+    #f1f5f9 50%,
+    #e2e8f0 75%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+  display: block;
+}
+
+/* ─── ProductCard Skeleton ─────────────────────────────────── */
+.skeleton-product-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-product-card .sk-image {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0;
+}
+
+.skeleton-product-card .sk-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-product-card .sk-title-long  { height: 14px; width: 85%; }
+.skeleton-product-card .sk-title-short { height: 14px; width: 55%; }
+.skeleton-product-card .sk-price       { height: 20px; width: 45%; margin-top: 4px; }
+.skeleton-product-card .sk-btn         { height: 38px; width: 100%; border-radius: 8px; margin-top: 8px; }
+
+/* ─── ProductDetails Skeleton ──────────────────────────────── */
+.skeleton-details-layout {
+  display: grid;
+  grid-template-columns: 2fr 3fr 2fr;
+  gap: 30px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  border: 1px solid var(--color-border, #e2e8f0);
+}
+
+/* Images column */
+.sk-details-images {
+  display: flex;
+  gap: 16px;
+}
+
+.sk-thumbs-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 70px;
+}
+
+.sk-thumb { width: 70px; height: 70px; border-radius: 8px; }
+
+.sk-main-image {
+  flex: 1;
+  height: 360px;
+  border-radius: 12px;
+}
+
+/* Info column */
+.sk-details-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sk-details-title-l { height: 20px; width: 90%; }
+.sk-details-title-s { height: 20px; width: 60%; }
+.sk-details-stars   { height: 16px; width: 40%; }
+.sk-details-price   { height: 36px; width: 50%; }
+.sk-details-desc-1  { height: 13px; width: 100%; }
+.sk-details-desc-2  { height: 13px; width: 85%; }
+.sk-details-desc-3  { height: 13px; width: 70%; }
+
+/* Action box column */
+.sk-action-box {
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sk-action-price  { height: 30px; width: 55%; }
+.sk-action-stock  { height: 14px; width: 35%; }
+.sk-action-btn-1  { height: 48px; width: 100%; border-radius: 8px; }
+.sk-action-btn-2  { height: 48px; width: 100%; border-radius: 8px; }
+.sk-action-btn-3  { height: 38px; width: 100%; border-radius: 8px; }
+
+/* Breadcrumb skeleton */
+.sk-breadcrumb {
+  height: 14px;
+  width: 280px;
+  border-radius: 4px;
+  max-width: 100%;
+}
+
+/* ─── Cart Skeleton ────────────────────────────────────────── */
+.skeleton-cart-item {
+  display: flex;
+  gap: 24px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.skeleton-cart-item:last-child {
+  border-bottom: none;
+}
+
+.sk-cart-image {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.sk-cart-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sk-cart-title  { height: 18px; width: 70%; }
+.sk-cart-price  { height: 18px; width: 30%; }
+.sk-cart-ship   { height: 13px; width: 55%; }
+.sk-cart-actions { height: 32px; width: 50%; border-radius: 6px; margin-top: auto; }
+
+/* ─── Responsive ───────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .skeleton-details-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .sk-details-images {
+    flex-direction: column-reverse;
+  }
+  .sk-thumbs-col {
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+  }
+  .sk-thumb {
+    flex-shrink: 0;
+  }
+}

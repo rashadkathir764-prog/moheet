@@ -1,0 +1,106 @@
+name: moheet
+
+services:
+  moheet-db:
+    image: postgres:16-alpine
+    container_name: moheet-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${DB_NAME:-moheet_db}
+      POSTGRES_USER: ${DB_USER:-moheet_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in .env file}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+
+    volumes:
+      - moheet_db_data:/var/lib/postgresql/data
+      - ./backend/database/init:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-moheet_user} -d ${DB_NAME:-moheet_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - moheet-network
+
+  moheet-api:
+    container_name: moheet-api
+    restart: unless-stopped
+
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+      target: development
+
+    depends_on:
+      moheet-db:
+        condition: service_healthy
+
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: ${API_PORT:-3000}
+      PORT: ${API_PORT:-3000}
+
+      DB_HOST: moheet-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-moheet_db}
+      DB_USER: ${DB_USER:-moheet_user}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_LOGGING: ${DB_LOGGING:-true}
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-false}
+      DB_MIGRATIONS_RUN: ${DB_MIGRATIONS_RUN:-false}
+
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      UPLOAD_DEST: ${UPLOAD_DEST:-./uploads}
+      UPLOAD_PUBLIC_BASE_URL: ${UPLOAD_PUBLIC_BASE_URL:-http://localhost:3000/uploads}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-5242880}
+      ALLOWED_IMAGE_TYPES: ${ALLOWED_IMAGE_TYPES:-image/jpeg,image/png,image/webp}
+      DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:-DemoPassword123!}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+
+    ports:
+      - "${API_HOST_PORT:-3000}:${API_PORT:-3000}"
+
+    volumes:
+      - ./backend:/app
+      - moheet_api_node_modules:/app/node_modules
+      - moheet_uploads:/app/uploads
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${API_PORT:-3000}/api/v1/categories >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - moheet-network
+
+    command: sh -c "npm install && npm run start:dev"
+
+networks:
+  moheet-network:
+    name: moheet-network
+    driver: bridge
+
+volumes:
+  moheet_db_data:
+    name: moheet_db_data
+
+  moheet_uploads:
+    name: moheet_uploads
+
+  moheet_api_node_modules:
+    name: moheet_api_node_modules

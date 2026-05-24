@@ -1,0 +1,148 @@
+.promo-blocks-section {
+  margin: 0 auto 30px auto;
+  max-width: 1400px;
+}
+
+.promo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .promo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.promo-col {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.promo-col-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.promo-col-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.promo-col-header a {
+  font-size: 14px;
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.micro-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.micro-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.micro-card:hover {
+  transform: translateY(-3px);
+  background: #f1f5f9;
+}
+
+.micro-card-image {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.micro-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.micro-price {
+  font-weight: 700;
+  color: #111827;
+  font-size: 15px;
+}
+
+/* Reward Center */
+.promo-reward {
+  background: linear-gradient(135deg, #FF6B00 0%, #FF3D00 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.promo-reward::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: -50px; /* Adjust for RTL, circle at bottom left */
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.reward-content {
+  position: relative;
+  z-index: 2;
+}
+
+.reward-content h3 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 12px 0;
+}
+
+.reward-content p {
+  font-size: 15px;
+  line-height: 1.6;
+  opacity: 0.9;
+  margin: 0 0 24px 0;
+  max-width: 80%;
+}
+
+.reward-btn {
+  background: #fff;
+  color: #FF3D00;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  align-self: flex-start;
+}
+
+.reward-btn:hover {
+  transform: scale(1.05);
+}

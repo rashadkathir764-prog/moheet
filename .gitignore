@@ -1,0 +1,50 @@
+# ==============================================================================
+# MOHEET | مُحِيط — .gitignore
+# ==============================================================================
+
+# ⚠️ البيئة — لا تُرفَع القيم الحساسة أبداً
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# NestJS Build
+backend/dist/
+backend/.tsbuildinfo
+
+# React/Vite Build
+frontend/web/dist/
+frontend/web/.vite/
+frontend/web.zip
+*.zip
+
+# Flutter Build
+frontend/mobile/build/
+frontend/mobile/.dart_tool/
+frontend/mobile/.flutter-plugins
+frontend/mobile/.flutter-plugins-dependencies
+
+# Uploads (ملفات المستخدمين — لا تُرفَع)
+backend/uploads/
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Docker
+.docker/
+
+# Logs
+*.log
+logs/
