@@ -13,8 +13,11 @@ export const commerceApi = {
   },
   addresses: {
     all: async () => (await apiClient.get('/addresses')).data.data,
+    getDefault: async () => (await apiClient.get('/addresses/default')).data.data,
     create: async (payload: Record<string, unknown>) =>
       (await apiClient.post('/addresses', payload)).data.data,
+    update: async (id: string, payload: Record<string, unknown>) =>
+      (await apiClient.patch(`/addresses/${id}`, payload)).data.data,
     setDefault: async (id: string) =>
       (await apiClient.patch(`/addresses/${id}/default`)).data.data,
   },

@@ -25,6 +25,8 @@ interface ShippingAddressSnapshot {
   fullAddress: string;
   city: string;
   country: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 /**

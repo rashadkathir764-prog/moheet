@@ -57,6 +57,12 @@ export class AddressesService {
     });
   }
 
+  async findDefault(customer: User): Promise<Address | null> {
+    return this.addressesRepository.findOne({
+      where: { userId: customer.id, isDefault: true },
+    });
+  }
+
   async findOne(id: string, user: User): Promise<Address> {
     const address = await this.addressesRepository.findOne({ where: { id } });
     if (!address) {
@@ -165,6 +171,8 @@ export class AddressesService {
       fullAddress: address.fullAddress,
       city: address.city,
       country: address.country,
+      latitude: address.latitude ? parseFloat(address.latitude as any) : undefined,
+      longitude: address.longitude ? parseFloat(address.longitude as any) : undefined,
     };
   }
 

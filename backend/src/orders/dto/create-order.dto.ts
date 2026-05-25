@@ -8,8 +8,10 @@ import {
   IsString,
   Matches,
   MaxLength,
+  Max,
   Min,
   ValidateNested,
+  IsNumber,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -46,6 +48,22 @@ export class ShippingAddressDto {
   @IsString()
   @MaxLength(100)
   country?: string = 'اليمن';
+
+  @ApiPropertyOptional({ example: 15.3694 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'خط العرض الجغرافي يجب أن يكون رقماً عشرياً' })
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 44.191 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'خط الطول الجغرافي يجب أن يكون رقماً عشرياً' })
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 }
 
 /** DTO عنصر الطلب الواحد */

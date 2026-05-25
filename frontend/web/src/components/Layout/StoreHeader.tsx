@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
 import { categoriesApi } from '../../api/categories.api';
+import { commerceApi } from '../../api/commerce.api';
 import { logError } from '../../utils/extractApiError';
 import type { Category } from '../../types';
 import { Search, MapPin, ShoppingCart, Menu, Heart, LogOut, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { LocationModal } from './LocationModal';
 import './StoreLayout.css';
 
 const SEARCH_PLACEHOLDERS = [
@@ -23,7 +25,27 @@ export const StoreHeader: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [semanticPlaceholder, setSemanticPlaceholder] = useState(SEARCH_PLACEHOLDERS[0]);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [deliveryCity, setDeliveryCity] = useState(() => {
+    return localStorage.getItem('moheet_delivery_city') || 'القاهرة';
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'CUSTOMER') {
+      commerceApi.addresses.all()
+        .then((addrs) => {
+          const defaultAddr = addrs?.find((a: { isDefault: boolean; city: string }) => a.isDefault);
+          if (defaultAddr) {
+            setDeliveryCity(defaultAddr.city);
+            localStorage.setItem('moheet_delivery_city', defaultAddr.city);
+          }
+        })
+        .catch((error) => {
+          logError('StoreHeader.addresses', error);
+        });
+    }
+  }, [isAuthenticated, user?.role]);
 
   useEffect(() => {
     let currentIndex = 0;
@@ -65,10 +87,10 @@ export const StoreHeader: React.FC = () => {
           </motion.div>
         </Link>
         
-        <div className="store-location">
+        <div className="store-location" onClick={() => setIsLocationModalOpen(true)}>
           <MapPin size={18} className="loc-icon" />
           <div className="store-location-text">
-            <span>التوصيل إلى {user?.fullName?.split(' ')[0] || 'القاهرة'}</span>
+            <span>التوصيل إلى {deliveryCity}</span>
             <span>تحديث الموقع</span>
           </div>
         </div>
@@ -163,6 +185,13 @@ export const StoreHeader: React.FC = () => {
           </Link>
         ))}
       </div>
+
+      <LocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onSelectLocation={setDeliveryCity}
+        currentLocation={deliveryCity}
+      />
     </div>
   );
 };

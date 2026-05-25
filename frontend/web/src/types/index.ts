@@ -158,6 +158,8 @@ export interface ShippingAddressPayload {
   fullAddress: string;
   city: string;
   country?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface CheckoutOrderPayload {

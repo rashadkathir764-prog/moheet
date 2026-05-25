@@ -1,23 +1,113 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ordersApi } from '../../api/orders.api';
 import { trackingApi } from '../../api/tracking.api';
+import { commerceApi } from '../../api/commerce.api';
 import { PageTransition } from '../../components/Layout/PageTransition';
+import { MapModal } from '../../components/Layout/MapModal';
 import { useCartStore } from '../../store/cart.store';
+import { useAuthStore } from '../../store/auth.store';
 import { extractApiError, logError } from '../../utils/extractApiError';
 import type { PaymentMethod } from '../../types';
+import { MapPin } from 'lucide-react';
 import './StorePages.css';
 
 export function CheckoutPage() {
+  const { isAuthenticated, user } = useAuthStore();
+  const isCustomer = isAuthenticated && user?.role === 'CUSTOMER';
+
   const [step, setStep] = useState(1);
   const [contactInfo, setContactInfo] = useState({ name: '', phone: '' });
   const [shippingInfo, setShippingInfo] = useState({ city: '', address: '' });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH_ON_DELIVERY');
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
+
+  const [savedAddressId, setSavedAddressId] = useState<string | null>(null);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   const clearCartCount = useCartStore((state) => state.clearCart);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    trackingApi.track('checkout_started', {
+      metadata: { step: 1 },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isCustomer) return;
+    commerceApi.addresses.getDefault()
+      .then((address) => {
+        if (address) {
+          setContactInfo({
+            name: address.recipientName,
+            phone: address.phone,
+          });
+          setShippingInfo({
+            city: address.city,
+            address: address.fullAddress,
+          });
+          setSavedAddressId(address.id);
+          if (address.latitude && address.longitude) {
+            setCoordinates({
+              lat: parseFloat(address.latitude),
+              lng: parseFloat(address.longitude),
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load default address:', err);
+      });
+  }, [isCustomer]);
+
+  const handleSaveLocation = async (lat: number, lng: number, addressText: string) => {
+    setCoordinates({ lat, lng });
+    setShippingInfo((prev) => ({
+      ...prev,
+      address: addressText,
+    }));
+
+    if (!isCustomer) return;
+
+    const recipientName = contactInfo.name.trim();
+    const phone = contactInfo.phone.trim();
+    const city = shippingInfo.city.trim();
+
+    if (!recipientName || !phone || !city) {
+      setIsError(false);
+      setMessage('تم تحديد الموقع. أكمل الاسم ورقم الهاتف والمدينة لحفظه كعنوان افتراضي.');
+      return;
+    }
+
+    try {
+      const addressPayload = {
+        recipientName,
+        phone,
+        city,
+        fullAddress: addressText,
+        latitude: lat,
+        longitude: lng,
+        isDefault: true,
+      };
+
+      if (savedAddressId) {
+        const updated = await commerceApi.addresses.update(savedAddressId, addressPayload);
+        if (updated) {
+          setSavedAddressId(updated.id);
+        }
+      } else {
+        const created = await commerceApi.addresses.create(addressPayload);
+        if (created) {
+          setSavedAddressId(created.id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update address in database:', err);
+    }
+  };
 
   const nextStep = () => setStep((currentStep) => Math.min(currentStep + 1, 3));
   const prevStep = () => setStep((currentStep) => Math.max(currentStep - 1, 1));
@@ -70,6 +160,8 @@ export function CheckoutPage() {
           phone: contactInfo.phone.trim(),
           city: shippingInfo.city.trim(),
           fullAddress: shippingInfo.address.trim(),
+          latitude: coordinates?.lat,
+          longitude: coordinates?.lng,
         },
         paymentMethod,
       });
@@ -144,6 +236,45 @@ export function CheckoutPage() {
               <h2 style={{ color: 'var(--color-text-primary)', fontSize: 18, marginBottom: '20px' }}>تفاصيل التوصيل</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <input placeholder="المدينة" value={shippingInfo.city} onChange={(event) => setShippingInfo({ ...shippingInfo, city: event.target.value })} style={{ padding: '12px', borderRadius: '4px', border: '1px solid var(--color-border)', background: '#FFFFFF', color: 'var(--color-text-primary)' }} />
+                
+                {/* Map Location Selector */}
+                <div style={{
+                  background: 'var(--color-surface-2)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                    <MapPin size={18} style={{ color: coordinates ? 'var(--color-accent)' : 'var(--color-text-secondary)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13px', color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {coordinates
+                        ? `الموقع الجغرافي: (${coordinates.lat.toFixed(5)}, ${coordinates.lng.toFixed(5)})`
+                        : 'لم يتم تحديد موقع جغرافي بعد (اختياري)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMapOpen(true)}
+                    style={{
+                      background: coordinates ? 'var(--color-accent)' : 'none',
+                      border: `1px solid ${coordinates ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                      borderRadius: '6px',
+                      padding: '8px 14px',
+                      fontSize: '13px',
+                      color: coordinates ? '#FFFFFF' : 'var(--color-text-secondary)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {coordinates ? 'تحديث الموقع' : 'تحديد الموقع على الخريطة'}
+                  </button>
+                </div>
+
                 <textarea placeholder="العنوان بالتفصيل (الحي، الشارع، المبنى)" rows={3} value={shippingInfo.address} onChange={(event) => setShippingInfo({ ...shippingInfo, address: event.target.value })} style={{ padding: '12px', borderRadius: '4px', border: '1px solid var(--color-border)', background: '#FFFFFF', color: 'var(--color-text-primary)', resize: 'none' }} />
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <button onClick={prevStep} style={{ flex: 1, padding: '15px', borderRadius: '30px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-primary)', cursor: 'pointer' }}>العودة</button>
@@ -184,6 +315,13 @@ export function CheckoutPage() {
           )}
         </div>
       </div>
+      <MapModal
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)}
+        onSaveLocation={handleSaveLocation}
+        initialLat={coordinates?.lat}
+        initialLng={coordinates?.lng}
+      />
     </PageTransition>
   );
 }

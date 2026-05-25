@@ -399,3 +399,417 @@
   border: 2px solid #FFFFFF;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+
+/* --- Location Modal Styles --- */
+.location-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.location-modal-card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--color-surface);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  position: relative;
+}
+
+.location-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+}
+
+.location-modal-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.location-modal-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.location-modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--color-text-primary);
+}
+
+.location-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.location-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 12px;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.location-section-title:first-of-type {
+  margin-top: 0;
+}
+
+.cities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.city-button {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.city-button:hover {
+  border-color: var(--color-accent);
+  background: rgba(255, 138, 0, 0.05);
+  color: var(--color-accent);
+}
+
+.city-button.selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #FFFFFF;
+}
+
+/* Custom location input */
+.custom-city-input-wrapper {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.custom-city-input {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  background: var(--color-surface);
+  transition: border-color 0.2s;
+}
+
+.custom-city-input:focus {
+  border-color: var(--color-accent);
+}
+
+.custom-city-submit-btn {
+  background: var(--color-primary-dark);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.custom-city-submit-btn:hover {
+  background: var(--color-primary-light);
+}
+
+/* Address cards styling */
+.addresses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.address-item-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.address-item-card:hover {
+  border-color: var(--color-accent);
+  background: rgba(255, 138, 0, 0.02);
+}
+
+.address-item-card.is-default {
+  border-color: var(--color-accent);
+  background: rgba(255, 138, 0, 0.05);
+}
+
+.address-item-card-icon {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.address-item-card.is-default .address-item-card-icon {
+  background: var(--color-accent);
+  color: #FFFFFF;
+}
+
+.address-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.address-recipient {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+
+.address-phone {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.address-details {
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.address-default-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px; /* RTL placement */
+  background: var(--color-accent);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* Form Styles */
+.add-address-trigger {
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.add-address-trigger:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(255, 138, 0, 0.02);
+}
+
+.new-address-form-box {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--color-surface-2);
+  margin-top: 12px;
+}
+
+.new-address-form-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.address-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.form-group-full {
+  grid-column: span 2;
+}
+
+.address-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.address-form-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.address-form-field input {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: var(--color-surface);
+  transition: border-color 0.2s;
+}
+
+.address-form-field input:focus {
+  border-color: var(--color-accent);
+}
+
+.address-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.address-form-btn-cancel {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.address-form-btn-cancel:hover {
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--color-text-primary);
+}
+
+.address-form-btn-submit {
+  background: var(--color-accent);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.address-form-btn-submit:hover {
+  background: var(--color-accent-hover);
+}
+
+.address-loading-placeholder {
+  text-align: center;
+  padding: 24px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.address-empty-placeholder {
+  text-align: center;
+  padding: 24px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+/* ─────────────────────────────────────────────
+   Leaflet RTL Fix
+   The global `body { direction: rtl }` breaks
+   Leaflet tile positioning via CSS inheritance.
+   Force every Leaflet element back to LTR.
+───────────────────────────────────────────── */
+.leaflet-container {
+  direction: ltr !important;
+  background: #e8e8e8 !important; /* visible background while tiles load */
+}
+
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-shadow-pane,
+.leaflet-overlay-pane,
+.leaflet-marker-pane,
+.leaflet-popup-pane,
+.leaflet-tooltip-pane,
+.leaflet-map-pane {
+  direction: ltr !important;
+}
+
+.leaflet-tile,
+.leaflet-tile-container {
+  direction: ltr !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.leaflet-tile-loaded {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Ensure tile images are never collapsed without resizing marker icons */
+.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}

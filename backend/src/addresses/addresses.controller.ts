@@ -55,6 +55,13 @@ export class AddressesController {
     return { success: true, data: addresses };
   }
 
+  @Get('default')
+  @ApiOperation({ summary: 'Get default address for the current customer' })
+  async findDefault(@CurrentUser() user: User) {
+    const address = await this.addressesService.findDefault(user);
+    return { success: true, data: address };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a saved address owned by the current customer' })
   @ApiResponse({ status: 404, description: 'Address not found' })
