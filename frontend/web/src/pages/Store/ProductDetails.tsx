@@ -67,8 +67,6 @@ export const ProductDetailsPage: React.FC = () => {
     if (id) {
       productsApi.getOne(id)
         .then((res) => {
-          setReviewOrderId(null);
-          setReviewEligibilityChecked(false);
           setQuantity(1);
           setProduct(res);
           setSelectedImage(res.thumbnailUrl || (res.images && res.images.length > 0 ? res.images[0].imageUrl : null));
@@ -93,22 +91,24 @@ export const ProductDetailsPage: React.FC = () => {
           logError('ProductDetails.reviews', error);
           // فشل جلب المراجعات لا يمنع عرض المنتج
         });
+    }
+  }, [id]);
 
-      if (isAuthenticated) {
-        ordersApi.getMy(1, 50)
-          .then((res) => {
-            const eligibleOrder = res.data.find((order) =>
-              order.status === 'DELIVERED' &&
-              order.items?.some((item) => item.productId === id),
-            );
-            setReviewOrderId(eligibleOrder?.id ?? null);
-          })
-          .catch((error) => {
-            logError('ProductDetails.reviewEligibility', error);
-            setReviewOrderId(null);
-          })
-          .finally(() => setReviewEligibilityChecked(true));
-      }
+  useEffect(() => {
+    if (id && isAuthenticated) {
+      ordersApi.getMy(1, 50)
+        .then((res) => {
+          const eligibleOrder = res.data.find((order) =>
+            order.status === 'DELIVERED' &&
+            order.items?.some((item) => item.productId === id),
+          );
+          setReviewOrderId(eligibleOrder?.id ?? null);
+        })
+        .catch((error) => {
+          logError('ProductDetails.reviewEligibility', error);
+          setReviewOrderId(null);
+        })
+        .finally(() => setReviewEligibilityChecked(true));
     }
   }, [id, isAuthenticated]);
 
