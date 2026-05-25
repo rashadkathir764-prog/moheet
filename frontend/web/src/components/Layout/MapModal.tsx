@@ -82,6 +82,7 @@ export const MapModal: React.FC<MapModalProps> = ({
   const markerRef = useRef<L.Marker | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reverseGeocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tileErrorCountRef = useRef(0);
   const fallbackAppliedRef = useRef(false);
 
@@ -112,9 +113,25 @@ export const MapModal: React.FC<MapModalProps> = ({
     }
   };
 
+  const clearReverseGeocodeTimer = () => {
+    if (reverseGeocodeTimerRef.current) {
+      clearTimeout(reverseGeocodeTimerRef.current);
+      reverseGeocodeTimerRef.current = null;
+    }
+  };
+
+  const debounceReverseGeocode = (lat: number, lng: number) => {
+    clearReverseGeocodeTimer();
+    reverseGeocodeTimerRef.current = setTimeout(() => {
+      reverseGeocodeTimerRef.current = null;
+      void reverseGeocode(lat, lng);
+    }, 500);
+  };
+
   // ── Destroy map cleanly ───────────────────────────────────────────────────
   const destroyMap = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    clearReverseGeocodeTimer();
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
@@ -196,7 +213,7 @@ export const MapModal: React.FC<MapModalProps> = ({
 
         const handleNewPosition = (lat: number, lng: number) => {
           setSelectedCoords({ lat, lng });
-          reverseGeocode(lat, lng);
+          debounceReverseGeocode(lat, lng);
         };
 
         map.on('click', (e: L.LeafletMouseEvent) => {
@@ -232,13 +249,28 @@ export const MapModal: React.FC<MapModalProps> = ({
 
     return () => {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      clearReverseGeocodeTimer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialLat, initialLng]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => destroyMap();
+    return () => {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (reverseGeocodeTimerRef.current) {
+        clearTimeout(reverseGeocodeTimerRef.current);
+        reverseGeocodeTimerRef.current = null;
+      }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+        tileLayerRef.current = null;
+      }
+      tileErrorCountRef.current = 0;
+      fallbackAppliedRef.current = false;
+    };
   }, []);
 
   const handleSave = () => {

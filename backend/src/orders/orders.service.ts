@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   UnprocessableEntityException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -272,10 +273,18 @@ export class OrdersService {
         manager,
       );
 
-      return manager.findOne(Order, {
+      const createdOrder = await manager.findOne(Order, {
         where: { id: savedOrder.id },
         relations: ['customer', 'items', 'items.product'],
       });
+
+      if (!createdOrder) {
+        throw new InternalServerErrorException(
+          'Order was created but could not be reloaded',
+        );
+      }
+
+      return createdOrder;
     });
   }
 
@@ -523,6 +532,10 @@ export class OrdersService {
       relations: ['customer', 'items'],
     });
 
+    if (!updatedOrder) {
+      throw new NotFoundException(`الطلب بالمعرف ${id} غير موجود`);
+    }
+
     return updatedOrder;
   }
 
@@ -581,10 +594,16 @@ export class OrdersService {
       );
     });
 
-    return this.ordersRepository.findOne({
+    const cancelledOrder = await this.ordersRepository.findOne({
       where: { id },
       relations: ['customer', 'items'],
     });
+
+    if (!cancelledOrder) {
+      throw new NotFoundException(`الطلب بالمعرف ${id} غير موجود`);
+    }
+
+    return cancelledOrder;
   }
 
   private getOrderStatusTimestamps(status: OrderStatus): Partial<Order> {

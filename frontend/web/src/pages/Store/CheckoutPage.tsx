@@ -13,6 +13,19 @@ import type { PaymentMethod } from '../../types';
 import { MapPin } from 'lucide-react';
 import './StorePages.css';
 
+const parseCoordinate = (value: unknown, min: number, max: number) => {
+  if (value === null || value === undefined || value === '') return undefined;
+
+  const coordinate =
+    typeof value === 'number' ? value : Number(String(value).trim());
+
+  if (!Number.isFinite(coordinate) || coordinate < min || coordinate > max) {
+    return undefined;
+  }
+
+  return coordinate;
+};
+
 export function CheckoutPage() {
   const { isAuthenticated, user } = useAuthStore();
   const isCustomer = isAuthenticated && user?.role === 'CUSTOMER';
@@ -50,10 +63,13 @@ export function CheckoutPage() {
             address: address.fullAddress,
           });
           setSavedAddressId(address.id);
-          if (address.latitude && address.longitude) {
+          const latitude = parseCoordinate(address.latitude, -90, 90);
+          const longitude = parseCoordinate(address.longitude, -180, 180);
+
+          if (latitude !== undefined && longitude !== undefined) {
             setCoordinates({
-              lat: parseFloat(address.latitude),
-              lng: parseFloat(address.longitude),
+              lat: latitude,
+              lng: longitude,
             });
           }
         }
@@ -64,7 +80,16 @@ export function CheckoutPage() {
   }, [isCustomer]);
 
   const handleSaveLocation = async (lat: number, lng: number, addressText: string) => {
-    setCoordinates({ lat, lng });
+    const latitude = parseCoordinate(lat, -90, 90);
+    const longitude = parseCoordinate(lng, -180, 180);
+
+    if (latitude === undefined || longitude === undefined) {
+      setIsError(true);
+      setMessage('تعذر حفظ الموقع لأن الإحداثيات غير صالحة.');
+      return;
+    }
+
+    setCoordinates({ lat: latitude, lng: longitude });
     setShippingInfo((prev) => ({
       ...prev,
       address: addressText,
@@ -88,8 +113,8 @@ export function CheckoutPage() {
         phone,
         city,
         fullAddress: addressText,
-        latitude: lat,
-        longitude: lng,
+        latitude,
+        longitude,
         isDefault: true,
       };
 
@@ -153,6 +178,8 @@ export function CheckoutPage() {
     try {
       setIsError(false);
       setMessage('');
+      const latitude = parseCoordinate(coordinates?.lat, -90, 90);
+      const longitude = parseCoordinate(coordinates?.lng, -180, 180);
 
       const response = await ordersApi.checkout({
         shippingAddress: {
@@ -160,8 +187,8 @@ export function CheckoutPage() {
           phone: contactInfo.phone.trim(),
           city: shippingInfo.city.trim(),
           fullAddress: shippingInfo.address.trim(),
-          latitude: coordinates?.lat,
-          longitude: coordinates?.lng,
+          latitude,
+          longitude,
         },
         paymentMethod,
       });

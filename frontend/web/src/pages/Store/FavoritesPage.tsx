@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { commerceApi } from '../../api/commerce.api';
+import { trackingApi } from '../../api/tracking.api';
 import { PageTransition } from '../../components/Layout/PageTransition';
 import type { Product } from '../../types';
 import './StorePages.css';
@@ -57,7 +58,12 @@ export function FavoritesPage() {
                       style={{ background: '#ef4444' }}
                       onClick={(event) => {
                         event.preventDefault();
-                        commerceApi.favorites.remove(favorite.product.id).then(load);
+                        commerceApi.favorites.remove(favorite.product.id).then(() => {
+                          trackingApi.track('remove_from_favorites', {
+                            productId: favorite.product.id,
+                          });
+                          return load();
+                        });
                       }}
                     >
                       إزالة من المفضلة
