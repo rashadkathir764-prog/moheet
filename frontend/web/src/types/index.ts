@@ -202,6 +202,14 @@ export type AnalyticsEventKey =
   | 'checkout_started'
   | 'purchase';
 
+export type AnalyticsEventCountKey =
+  | AnalyticsEventKey
+  | 'update_cart'
+  | 'remove_from_cart'
+  | 'remove_from_favorites'
+  | 'recommendation_impression'
+  | 'recommendation_click';
+
 export interface AnalyticsProductMetric {
   productId: string;
   name: string;
@@ -221,8 +229,16 @@ export interface AnalyticsFunnelStep {
   rateFromPrevious: number;
 }
 
+export interface RecommendationAnalytics {
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
 export interface AnalyticsSummary {
   totals: Record<AnalyticsEventKey, number>;
+  eventCounts: Record<AnalyticsEventCountKey, number>;
+  recommendationMetrics: RecommendationAnalytics;
   topViewedProducts: AnalyticsProductMetric[];
   topCartProducts: AnalyticsProductMetric[];
   topPurchasedProducts: AnalyticsProductMetric[];

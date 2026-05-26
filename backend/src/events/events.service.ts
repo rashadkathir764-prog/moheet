@@ -17,6 +17,14 @@ type AnalyticsMetricKey =
   | UserEventType.CHECKOUT_STARTED
   | UserEventType.PURCHASE;
 
+type AnalyticsEventCountKey =
+  | AnalyticsMetricKey
+  | UserEventType.UPDATE_CART
+  | UserEventType.REMOVE_FROM_CART
+  | UserEventType.REMOVE_FROM_FAVORITES
+  | UserEventType.RECOMMENDATION_IMPRESSION
+  | UserEventType.RECOMMENDATION_CLICK;
+
 interface ProductAnalyticsItem {
   productId: string;
   name: string;
@@ -36,8 +44,16 @@ interface FunnelAnalyticsItem {
   rateFromPrevious: number;
 }
 
+interface RecommendationAnalytics {
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
 export interface AnalyticsSummary {
   totals: Record<AnalyticsMetricKey, number>;
+  eventCounts: Record<AnalyticsEventCountKey, number>;
+  recommendationMetrics: RecommendationAnalytics;
   topViewedProducts: ProductAnalyticsItem[];
   topCartProducts: ProductAnalyticsItem[];
   topPurchasedProducts: ProductAnalyticsItem[];
@@ -52,11 +68,20 @@ const ANALYTICS_EVENTS: AnalyticsMetricKey[] = [
   UserEventType.PURCHASE,
 ];
 
+const EVENT_COUNT_TYPES: AnalyticsEventCountKey[] = [
+  ...ANALYTICS_EVENTS,
+  UserEventType.UPDATE_CART,
+  UserEventType.REMOVE_FROM_CART,
+  UserEventType.REMOVE_FROM_FAVORITES,
+  UserEventType.RECOMMENDATION_IMPRESSION,
+  UserEventType.RECOMMENDATION_CLICK,
+];
+
 const FUNNEL_LABELS: Record<AnalyticsMetricKey, string> = {
-  [UserEventType.PRODUCT_VIEW]: 'Product views',
-  [UserEventType.ADD_TO_CART]: 'Add to cart',
-  [UserEventType.CHECKOUT_STARTED]: 'Checkout started',
-  [UserEventType.PURCHASE]: 'Purchases',
+  [UserEventType.PRODUCT_VIEW]: 'مشاهدة المنتج',
+  [UserEventType.ADD_TO_CART]: 'إضافة للسلة',
+  [UserEventType.CHECKOUT_STARTED]: 'بدء الدفع',
+  [UserEventType.PURCHASE]: 'شراء',
 };
 
 @Injectable()
@@ -93,17 +118,27 @@ export class EventsService {
   }
 
   async getAdminAnalyticsSummary(): Promise<AnalyticsSummary> {
-    const [eventTotals, topViewedProducts, topCartProducts, topPurchasedProducts, topSearches] =
+    const [eventCounts, topViewedProducts, topCartProducts, topPurchasedProducts, topSearches] =
       await Promise.all([
-        this.getEventTotals(),
+        this.getEventCounts(),
         this.getTopProductsBySignal('viewCount'),
         this.getTopProductsBySignal('cartAddCount'),
         this.getTopProductsBySignal('purchaseCount'),
         this.getTopSearches(),
       ]);
+    const eventTotals = this.pickFunnelTotals(eventCounts);
 
     return {
       totals: eventTotals,
+      eventCounts,
+      recommendationMetrics: {
+        impressions: eventCounts[UserEventType.RECOMMENDATION_IMPRESSION],
+        clicks: eventCounts[UserEventType.RECOMMENDATION_CLICK],
+        ctr: this.percentage(
+          eventCounts[UserEventType.RECOMMENDATION_CLICK],
+          eventCounts[UserEventType.RECOMMENDATION_IMPRESSION],
+        ),
+      },
       topViewedProducts,
       topCartProducts,
       topPurchasedProducts,
@@ -112,24 +147,37 @@ export class EventsService {
     };
   }
 
-  private async getEventTotals(): Promise<Record<AnalyticsMetricKey, number>> {
+  private async getEventCounts(): Promise<Record<AnalyticsEventCountKey, number>> {
     const rows = await this.eventsRepository
       .createQueryBuilder('event')
       .select('event.type', 'type')
       .addSelect('COUNT(event.id)', 'count')
-      .where('event.type IN (:...types)', { types: ANALYTICS_EVENTS })
+      .where('event.type IN (:...types)', { types: EVENT_COUNT_TYPES })
       .groupBy('event.type')
-      .getRawMany<{ type: AnalyticsMetricKey; count: string }>();
+      .getRawMany<{ type: AnalyticsEventCountKey; count: string }>();
 
-    const totals = ANALYTICS_EVENTS.reduce(
-      (acc, type) => ({ ...acc, [type]: 0 }),
-      {} as Record<AnalyticsMetricKey, number>,
+    const eventCounts = EVENT_COUNT_TYPES.reduce(
+      (acc, type) => {
+        acc[type] = 0;
+        return acc;
+      },
+      {} as Record<AnalyticsEventCountKey, number>,
     );
 
     rows.forEach((row) => {
-      totals[row.type] = Number(row.count) || 0;
+      eventCounts[row.type] = Number(row.count) || 0;
     });
 
+    return eventCounts;
+  }
+
+  private pickFunnelTotals(
+    eventCounts: Record<AnalyticsEventCountKey, number>,
+  ): Record<AnalyticsMetricKey, number> {
+    const totals = {} as Record<AnalyticsMetricKey, number>;
+    ANALYTICS_EVENTS.forEach((event) => {
+      totals[event] = eventCounts[event];
+    });
     return totals;
   }
 

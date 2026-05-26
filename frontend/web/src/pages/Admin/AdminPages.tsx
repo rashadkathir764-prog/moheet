@@ -402,11 +402,23 @@ function AnalyticsPanel({
   error: string;
 }) {
   const totals = analytics?.totals;
+  const eventCounts = analytics?.eventCounts;
+  const recommendationMetrics = analytics?.recommendationMetrics;
+  const removalCount = eventCounts?.remove_from_favorites
+    ? eventCounts.remove_from_favorites
+    : eventCounts?.remove_from_cart ?? 0;
+  const removalLabel = eventCounts?.remove_from_favorites
+    ? 'إزالة من المفضلة'
+    : 'إزالة من السلة';
   const cards = [
     { label: 'مشاهدات المنتجات', value: totals?.product_view ?? 0 },
     { label: 'إضافة للسلة', value: totals?.add_to_cart ?? 0 },
     { label: 'بدء الدفع', value: totals?.checkout_started ?? 0 },
     { label: 'المشتريات', value: totals?.purchase ?? 0 },
+    { label: 'ظهور التوصيات', value: recommendationMetrics?.impressions ?? 0 },
+    { label: 'نقرات التوصيات', value: recommendationMetrics?.clicks ?? 0 },
+    { label: 'CTR التوصيات', value: percent(recommendationMetrics?.ctr) },
+    { label: removalLabel, value: removalCount },
   ];
 
   return (
@@ -429,6 +441,14 @@ function AnalyticsPanel({
           title="أكثر المنتجات مشاهدة"
           products={analytics?.topViewedProducts ?? []}
         />
+        <TopProductsTable
+          title="أكثر المنتجات إضافة للسلة"
+          products={analytics?.topCartProducts ?? []}
+        />
+        <TopProductsTable
+          title="أكثر المنتجات شراءً"
+          products={analytics?.topPurchasedProducts ?? []}
+        />
         <TopSearchesTable searches={analytics?.topSearches ?? []} />
       </div>
 
@@ -445,7 +465,7 @@ function AnalyticsPanel({
           {!analytics?.funnel.length ? (
             <tr>
               <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
-                لا توجد بيانات funnel كافية حتى الآن.
+                لا توجد بيانات كافية بعد
               </td>
             </tr>
           ) : (
@@ -477,7 +497,7 @@ function TopProductsTable({
       <table className="dashboard-table">
         <tbody>
           {products.length === 0 ? (
-            <tr><td style={{ color: '#64748b' }}>لا توجد بيانات منتجات كافية.</td></tr>
+            <tr><td style={{ color: '#64748b' }}>لا توجد بيانات كافية بعد</td></tr>
           ) : (
             products.map((product) => (
               <tr key={product.productId}>
@@ -503,7 +523,7 @@ function TopSearchesTable({
       <table className="dashboard-table">
         <tbody>
           {searches.length === 0 ? (
-            <tr><td style={{ color: '#64748b' }}>لا توجد عمليات بحث مسجلة.</td></tr>
+            <tr><td style={{ color: '#64748b' }}>لا توجد بيانات كافية بعد</td></tr>
           ) : (
             searches.map((search) => (
               <tr key={search.query}>
