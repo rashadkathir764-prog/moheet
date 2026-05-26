@@ -12,6 +12,7 @@ import { usersApi } from '../../api/users.api';
 import { analyticsApi } from '../../api/analytics.api';
 import type {
   AnalyticsProductMetric,
+  AnalyticsRange,
   AnalyticsSummary,
   Order,
   Product,
@@ -38,6 +39,13 @@ const roleLabel = (role: User['role']) => {
 
 const percent = (value?: number) => `${Number(value ?? 0).toFixed(1)}%`;
 
+const analyticsRangeOptions: Array<{ value: AnalyticsRange; label: string }> = [
+  { value: 'today', label: 'اليوم' },
+  { value: '7d', label: 'آخر 7 أيام' },
+  { value: '30d', label: 'آخر 30 يوم' },
+  { value: 'all', label: 'كل الوقت' },
+];
+
 interface VendorSummary {
   id: string;
   storeName: string;
@@ -60,6 +68,7 @@ export function AdminDashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRange>('7d');
 
   const location = useLocation();
   const currentPath = location.pathname;
@@ -101,7 +110,7 @@ export function AdminDashboard() {
       setAnalyticsLoading(true);
       setAnalyticsError('');
 
-      analyticsApi.getSummary()
+      analyticsApi.getSummary(analyticsRange)
         .then((summary) => {
           if (active) setAnalytics(summary);
         })
@@ -117,7 +126,7 @@ export function AdminDashboard() {
       active = false;
       clearTimeout(timer);
     };
-  }, [isDashboard]);
+  }, [isDashboard, analyticsRange]);
 
   useEffect(() => {
     if (isProducts) {
@@ -230,6 +239,8 @@ export function AdminDashboard() {
             analytics={analytics}
             loading={analyticsLoading}
             error={analyticsError}
+            selectedRange={analyticsRange}
+            onRangeChange={setAnalyticsRange}
           />
 
           <section className="dashboard-section">
@@ -396,14 +407,19 @@ function AnalyticsPanel({
   analytics,
   loading,
   error,
+  selectedRange,
+  onRangeChange,
 }: {
   analytics: AnalyticsSummary | null;
   loading: boolean;
   error: string;
+  selectedRange: AnalyticsRange;
+  onRangeChange: (range: AnalyticsRange) => void;
 }) {
   const totals = analytics?.totals;
   const eventCounts = analytics?.eventCounts;
   const recommendationMetrics = analytics?.recommendationMetrics;
+  const dataQuality = analytics?.dataQuality;
   const removalCount = eventCounts?.remove_from_favorites
     ? eventCounts.remove_from_favorites
     : eventCounts?.remove_from_cart ?? 0;
@@ -423,7 +439,33 @@ function AnalyticsPanel({
 
   return (
     <section className="dashboard-section">
-      <h2>تحليلات المتجر</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ marginBottom: 4 }}>تحليلات المتجر</h2>
+          <p style={{ color: '#64748b', margin: 0 }}>
+            جداول المنتجات تعتمد على إشارات تراكمية لكل الوقت.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {analyticsRangeOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onRangeChange(option.value)}
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                cursor: 'pointer',
+                background: selectedRange === option.value ? '#232f3e' : '#fff',
+                color: selectedRange === option.value ? '#fff' : '#0f1111',
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {loading && <p style={{ color: '#64748b' }}>جاري تحميل التحليلات...</p>}
       {error && <p style={{ color: '#c62828' }}>تعذر تحميل التحليلات: {error}</p>}
 
@@ -434,6 +476,21 @@ function AnalyticsPanel({
             <div className="price">{card.value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="dashboard-grid" style={{ padding: 0, marginTop: '20px' }}>
+        <div className="dashboard-card">
+          <h3>إجمالي الأحداث في الفترة</h3>
+          <div className="price">{dataQuality?.totalEventsInRange ?? 0}</div>
+        </div>
+        <div className="dashboard-card">
+          <h3>أحداث ناقصة productId</h3>
+          <div className="price">{dataQuality?.eventsWithoutProductId ?? 0}</div>
+        </div>
+        <div className="dashboard-card">
+          <h3>عمليات بحث فارغة</h3>
+          <div className="price">{dataQuality?.emptySearchQueries ?? 0}</div>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '20px' }}>

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -23,8 +23,8 @@ export class EventsController {
   @Roles(Role.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Admin analytics summary from behavior events' })
-  async analyticsSummary() {
-    const summary = await this.eventsService.getAdminAnalyticsSummary();
+  async analyticsSummary(@Query('range') range?: string) {
+    const summary = await this.eventsService.getAdminAnalyticsSummary(range);
     return { success: true, data: summary };
   }
 

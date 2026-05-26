@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { CreateUserEventDto } from './dto/create-user-event.dto';
 import {
   UserEvent,
@@ -16,6 +16,8 @@ type AnalyticsMetricKey =
   | UserEventType.ADD_TO_CART
   | UserEventType.CHECKOUT_STARTED
   | UserEventType.PURCHASE;
+
+type AnalyticsRange = 'today' | '7d' | '30d' | 'all';
 
 type AnalyticsEventCountKey =
   | AnalyticsMetricKey
@@ -50,10 +52,24 @@ interface RecommendationAnalytics {
   ctr: number;
 }
 
+interface AnalyticsDataQuality {
+  totalEventsInRange: number;
+  eventsWithoutProductId: number;
+  emptySearchQueries: number;
+}
+
+interface AnalyticsRangeFilter {
+  range: AnalyticsRange;
+  startDate?: Date;
+}
+
 export interface AnalyticsSummary {
+  range: AnalyticsRange;
+  productSignalsScope: 'allTime';
   totals: Record<AnalyticsMetricKey, number>;
   eventCounts: Record<AnalyticsEventCountKey, number>;
   recommendationMetrics: RecommendationAnalytics;
+  dataQuality: AnalyticsDataQuality;
   topViewedProducts: ProductAnalyticsItem[];
   topCartProducts: ProductAnalyticsItem[];
   topPurchasedProducts: ProductAnalyticsItem[];
@@ -117,18 +133,29 @@ export class EventsService {
     return savedEvent;
   }
 
-  async getAdminAnalyticsSummary(): Promise<AnalyticsSummary> {
-    const [eventCounts, topViewedProducts, topCartProducts, topPurchasedProducts, topSearches] =
+  async getAdminAnalyticsSummary(range?: string): Promise<AnalyticsSummary> {
+    const rangeFilter = this.resolveRange(range);
+    const [
+      eventCounts,
+      topViewedProducts,
+      topCartProducts,
+      topPurchasedProducts,
+      topSearches,
+      dataQuality,
+    ] =
       await Promise.all([
-        this.getEventCounts(),
+        this.getEventCounts(rangeFilter),
         this.getTopProductsBySignal('viewCount'),
         this.getTopProductsBySignal('cartAddCount'),
         this.getTopProductsBySignal('purchaseCount'),
-        this.getTopSearches(),
+        this.getTopSearches(rangeFilter),
+        this.getDataQuality(rangeFilter),
       ]);
     const eventTotals = this.pickFunnelTotals(eventCounts);
 
     return {
+      range: rangeFilter.range,
+      productSignalsScope: 'allTime',
       totals: eventTotals,
       eventCounts,
       recommendationMetrics: {
@@ -139,6 +166,7 @@ export class EventsService {
           eventCounts[UserEventType.RECOMMENDATION_IMPRESSION],
         ),
       },
+      dataQuality,
       topViewedProducts,
       topCartProducts,
       topPurchasedProducts,
@@ -147,13 +175,17 @@ export class EventsService {
     };
   }
 
-  private async getEventCounts(): Promise<Record<AnalyticsEventCountKey, number>> {
-    const rows = await this.eventsRepository
+  private async getEventCounts(
+    rangeFilter: AnalyticsRangeFilter,
+  ): Promise<Record<AnalyticsEventCountKey, number>> {
+    const qb = this.eventsRepository
       .createQueryBuilder('event')
       .select('event.type', 'type')
       .addSelect('COUNT(event.id)', 'count')
       .where('event.type IN (:...types)', { types: EVENT_COUNT_TYPES })
-      .groupBy('event.type')
+      .groupBy('event.type');
+
+    const rows = await this.applyEventRange(qb, rangeFilter)
       .getRawMany<{ type: AnalyticsEventCountKey; count: string }>();
 
     const eventCounts = EVENT_COUNT_TYPES.reduce(
@@ -206,8 +238,10 @@ export class EventsService {
       }));
   }
 
-  private async getTopSearches(): Promise<SearchAnalyticsItem[]> {
-    const rows = await this.eventsRepository
+  private async getTopSearches(
+    rangeFilter: AnalyticsRangeFilter,
+  ): Promise<SearchAnalyticsItem[]> {
+    const qb = this.eventsRepository
       .createQueryBuilder('event')
       .select('LOWER(TRIM(event.search_query))', 'query')
       .addSelect('COUNT(event.id)', 'count')
@@ -216,13 +250,50 @@ export class EventsService {
       .andWhere("TRIM(event.search_query) != ''")
       .groupBy('LOWER(TRIM(event.search_query))')
       .orderBy('COUNT(event.id)', 'DESC')
-      .limit(10)
+      .limit(10);
+
+    const rows = await this.applyEventRange(qb, rangeFilter)
       .getRawMany<{ query: string; count: string }>();
 
     return rows.map((row) => ({
       query: row.query,
       count: Number(row.count) || 0,
     }));
+  }
+
+  private async getDataQuality(
+    rangeFilter: AnalyticsRangeFilter,
+  ): Promise<AnalyticsDataQuality> {
+    const expectedProductIdEvents = [
+      UserEventType.PRODUCT_VIEW,
+      UserEventType.ADD_TO_CART,
+      UserEventType.PURCHASE,
+      UserEventType.RECOMMENDATION_CLICK,
+    ];
+
+    const totalEventsQb = this.eventsRepository
+      .createQueryBuilder('event');
+    const missingProductQb = this.eventsRepository
+      .createQueryBuilder('event')
+      .where('event.type IN (:...types)', { types: expectedProductIdEvents })
+      .andWhere('event.productId IS NULL');
+    const emptySearchQb = this.eventsRepository
+      .createQueryBuilder('event')
+      .where('event.type = :type', { type: UserEventType.SEARCH })
+      .andWhere("(event.search_query IS NULL OR TRIM(event.search_query) = '')");
+
+    const [totalEventsInRange, eventsWithoutProductId, emptySearchQueries] =
+      await Promise.all([
+        this.applyEventRange(totalEventsQb, rangeFilter).getCount(),
+        this.applyEventRange(missingProductQb, rangeFilter).getCount(),
+        this.applyEventRange(emptySearchQb, rangeFilter).getCount(),
+      ]);
+
+    return {
+      totalEventsInRange,
+      eventsWithoutProductId,
+      emptySearchQueries,
+    };
   }
 
   private buildFunnel(
@@ -292,5 +363,38 @@ export class EventsService {
   private percentage(value: number, base: number): number {
     if (!base) return 0;
     return Math.round((value / base) * 1000) / 10;
+  }
+
+  private resolveRange(range?: string): AnalyticsRangeFilter {
+    const normalized = ['today', '7d', '30d', 'all'].includes(range ?? '')
+      ? (range as AnalyticsRange)
+      : '7d';
+
+    if (normalized === 'all') {
+      return { range: normalized };
+    }
+
+    const startDate = new Date();
+    if (normalized === 'today') {
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      const days = normalized === '30d' ? 30 : 7;
+      startDate.setDate(startDate.getDate() - days);
+    }
+
+    return { range: normalized, startDate };
+  }
+
+  private applyEventRange(
+    qb: SelectQueryBuilder<UserEvent>,
+    rangeFilter: AnalyticsRangeFilter,
+  ): SelectQueryBuilder<UserEvent> {
+    if (rangeFilter.startDate) {
+      qb.andWhere('event.createdAt >= :startDate', {
+        startDate: rangeFilter.startDate,
+      });
+    }
+
+    return qb;
   }
 }

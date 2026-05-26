@@ -202,6 +202,8 @@ export type AnalyticsEventKey =
   | 'checkout_started'
   | 'purchase';
 
+export type AnalyticsRange = 'today' | '7d' | '30d' | 'all';
+
 export type AnalyticsEventCountKey =
   | AnalyticsEventKey
   | 'update_cart'
@@ -235,10 +237,19 @@ export interface RecommendationAnalytics {
   ctr: number;
 }
 
+export interface AnalyticsDataQuality {
+  totalEventsInRange: number;
+  eventsWithoutProductId: number;
+  emptySearchQueries: number;
+}
+
 export interface AnalyticsSummary {
+  range: AnalyticsRange;
+  productSignalsScope: 'allTime';
   totals: Record<AnalyticsEventKey, number>;
   eventCounts: Record<AnalyticsEventCountKey, number>;
   recommendationMetrics: RecommendationAnalytics;
+  dataQuality: AnalyticsDataQuality;
   topViewedProducts: AnalyticsProductMetric[];
   topCartProducts: AnalyticsProductMetric[];
   topPurchasedProducts: AnalyticsProductMetric[];
