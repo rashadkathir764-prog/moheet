@@ -196,6 +196,40 @@ export interface PaginatedResponse<T> {
 
 export type ProductsListResponse = PaginatedResponse<Product>;
 
+export type AnalyticsEventKey =
+  | 'product_view'
+  | 'add_to_cart'
+  | 'checkout_started'
+  | 'purchase';
+
+export interface AnalyticsProductMetric {
+  productId: string;
+  name: string;
+  count: number;
+}
+
+export interface AnalyticsSearchMetric {
+  query: string;
+  count: number;
+}
+
+export interface AnalyticsFunnelStep {
+  event: AnalyticsEventKey;
+  label: string;
+  count: number;
+  rateFromViews: number;
+  rateFromPrevious: number;
+}
+
+export interface AnalyticsSummary {
+  totals: Record<AnalyticsEventKey, number>;
+  topViewedProducts: AnalyticsProductMetric[];
+  topCartProducts: AnalyticsProductMetric[];
+  topPurchasedProducts: AnalyticsProductMetric[];
+  topSearches: AnalyticsSearchMetric[];
+  funnel: AnalyticsFunnelStep[];
+}
+
 // ─── Query Params ─────────────────────────────────────────────────────────────
 
 export type ProductSortBy = 'price_asc' | 'price_desc' | 'newest' | 'oldest' | 'name_az';

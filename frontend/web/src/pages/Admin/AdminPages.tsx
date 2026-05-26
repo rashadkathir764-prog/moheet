@@ -9,7 +9,15 @@ import { commerceApi } from '../../api/commerce.api';
 import { productsApi } from '../../api/products.api';
 import { categoriesApi } from '../../api/categories.api';
 import { usersApi } from '../../api/users.api';
-import type { Order, Product, Category, User } from '../../types';
+import { analyticsApi } from '../../api/analytics.api';
+import type {
+  AnalyticsProductMetric,
+  AnalyticsSummary,
+  Order,
+  Product,
+  Category,
+  User,
+} from '../../types';
 import { PageTransition } from '../../components/Layout/PageTransition';
 import { extractApiError } from '../../utils/extractApiError';
 import './AdminPages.css';
@@ -27,6 +35,8 @@ const roleLabel = (role: User['role']) => {
   if (role === 'VENDOR') return 'تاجر';
   return 'عميل';
 };
+
+const percent = (value?: number) => `${Number(value ?? 0).toFixed(1)}%`;
 
 interface VendorSummary {
   id: string;
@@ -47,6 +57,9 @@ export function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
 
   const location = useLocation();
   const currentPath = location.pathname;
@@ -78,6 +91,33 @@ export function AdminDashboard() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!isDashboard) return;
+
+    let active = true;
+    const timer = setTimeout(() => {
+      if (!active) return;
+      setAnalyticsLoading(true);
+      setAnalyticsError('');
+
+      analyticsApi.getSummary()
+        .then((summary) => {
+          if (active) setAnalytics(summary);
+        })
+        .catch((error: unknown) => {
+          if (active) setAnalyticsError(extractApiError(error));
+        })
+        .finally(() => {
+          if (active) setAnalyticsLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [isDashboard]);
 
   useEffect(() => {
     if (isProducts) {
@@ -185,6 +225,12 @@ export function AdminDashboard() {
               </ResponsiveContainer>
             </div>
           </section>
+
+          <AnalyticsPanel
+            analytics={analytics}
+            loading={analyticsLoading}
+            error={analyticsError}
+          />
 
           <section className="dashboard-section">
             <h2>الموافقة على التجار</h2>
@@ -342,6 +388,132 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function AnalyticsPanel({
+  analytics,
+  loading,
+  error,
+}: {
+  analytics: AnalyticsSummary | null;
+  loading: boolean;
+  error: string;
+}) {
+  const totals = analytics?.totals;
+  const cards = [
+    { label: 'مشاهدات المنتجات', value: totals?.product_view ?? 0 },
+    { label: 'إضافة للسلة', value: totals?.add_to_cart ?? 0 },
+    { label: 'بدء الدفع', value: totals?.checkout_started ?? 0 },
+    { label: 'المشتريات', value: totals?.purchase ?? 0 },
+  ];
+
+  return (
+    <section className="dashboard-section">
+      <h2>تحليلات المتجر</h2>
+      {loading && <p style={{ color: '#64748b' }}>جاري تحميل التحليلات...</p>}
+      {error && <p style={{ color: '#c62828' }}>تعذر تحميل التحليلات: {error}</p>}
+
+      <div className="dashboard-grid" style={{ padding: 0 }}>
+        {cards.map((card) => (
+          <div className="dashboard-card" key={card.label}>
+            <h3>{card.label}</h3>
+            <div className="price">{card.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        <TopProductsTable
+          title="أكثر المنتجات مشاهدة"
+          products={analytics?.topViewedProducts ?? []}
+        />
+        <TopSearchesTable searches={analytics?.topSearches ?? []} />
+      </div>
+
+      <table className="dashboard-table">
+        <thead>
+          <tr>
+            <th>مرحلة المسار</th>
+            <th>العدد</th>
+            <th>من المشاهدات</th>
+            <th>من الخطوة السابقة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {!analytics?.funnel.length ? (
+            <tr>
+              <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+                لا توجد بيانات funnel كافية حتى الآن.
+              </td>
+            </tr>
+          ) : (
+            analytics.funnel.map((step) => (
+              <tr key={step.event}>
+                <td>{step.label}</td>
+                <td>{step.count}</td>
+                <td>{percent(step.rateFromViews)}</td>
+                <td>{percent(step.rateFromPrevious)}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function TopProductsTable({
+  title,
+  products,
+}: {
+  title: string;
+  products: AnalyticsProductMetric[];
+}) {
+  return (
+    <div>
+      <h3 style={{ color: '#0f1111', marginBottom: 0 }}>{title}</h3>
+      <table className="dashboard-table">
+        <tbody>
+          {products.length === 0 ? (
+            <tr><td style={{ color: '#64748b' }}>لا توجد بيانات منتجات كافية.</td></tr>
+          ) : (
+            products.map((product) => (
+              <tr key={product.productId}>
+                <td>{product.name}</td>
+                <td style={{ fontWeight: 'bold' }}>{product.count}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TopSearchesTable({
+  searches,
+}: {
+  searches: AnalyticsSummary['topSearches'];
+}) {
+  return (
+    <div>
+      <h3 style={{ color: '#0f1111', marginBottom: 0 }}>أكثر كلمات البحث استخدامًا</h3>
+      <table className="dashboard-table">
+        <tbody>
+          {searches.length === 0 ? (
+            <tr><td style={{ color: '#64748b' }}>لا توجد عمليات بحث مسجلة.</td></tr>
+          ) : (
+            searches.map((search) => (
+              <tr key={search.query}>
+                <td>{search.query}</td>
+                <td style={{ fontWeight: 'bold' }}>{search.count}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
