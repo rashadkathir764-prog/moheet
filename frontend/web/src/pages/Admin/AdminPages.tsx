@@ -15,8 +15,10 @@ import type {
   AnalyticsRange,
   AnalyticsSummary,
   Order,
+  OrderStatus,
   Product,
   Category,
+  UpdateOrderStatusPayload,
   User,
 } from '../../types';
 import { PageTransition } from '../../components/Layout/PageTransition';
@@ -57,6 +59,38 @@ interface CouponSummary {
   code?: string;
   name?: string;
 }
+
+const orderStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PROCESSING'],
+  PROCESSING: ['SHIPPED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+  REFUNDED: [],
+};
+
+const orderStatusLabels: Record<OrderStatus, string> = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  PROCESSING: 'Processing',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  REFUNDED: 'Refunded',
+};
+
+interface OrderStatusDraft {
+  status: OrderStatus | '';
+  shippingCarrier: string;
+  trackingNumber: string;
+}
+
+const emptyOrderStatusDraft = (): OrderStatusDraft => ({
+  status: '',
+  shippingCarrier: '',
+  trackingNumber: '',
+});
 
 export function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -376,21 +410,102 @@ export function AdminDashboard() {
 // VendorDashboard moved to VendorPages.tsx
 
 function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
+  const location = useLocation();
+  const canManageStatus = location.pathname.endsWith('/orders');
+  const [updatedOrdersById, setUpdatedOrdersById] = useState<Record<string, Order>>({});
+  const [drafts, setDrafts] = useState<Record<string, OrderStatusDraft>>({});
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const displayedOrders = orders.map((order) => updatedOrdersById[order.id] ?? order);
+
+  const updateDraft = (orderId: string, changes: Partial<OrderStatusDraft>) => {
+    setDrafts((current) => ({
+      ...current,
+      [orderId]: {
+        ...(current[orderId] ?? emptyOrderStatusDraft()),
+        ...changes,
+      },
+    }));
+  };
+
+  const handleStatusUpdate = async (order: Order) => {
+    const draft = drafts[order.id] ?? emptyOrderStatusDraft();
+
+    setMessage('');
+    setError('');
+
+    if (!draft.status) {
+      setError('اختر حالة جديدة للطلب أولاً.');
+      return;
+    }
+
+    if (draft.status === 'SHIPPED' && (!draft.shippingCarrier.trim() || !draft.trackingNumber.trim())) {
+      setError('شركة الشحن ورقم التتبع مطلوبان عند تحويل الطلب إلى SHIPPED.');
+      return;
+    }
+
+    const payload: UpdateOrderStatusPayload = {
+      status: draft.status,
+      ...(draft.status === 'SHIPPED' && {
+        shippingCarrier: draft.shippingCarrier.trim(),
+        trackingNumber: draft.trackingNumber.trim(),
+      }),
+    };
+
+    try {
+      setUpdatingOrderId(order.id);
+      const updatedOrder = await ordersApi.updateStatus(order.id, payload);
+
+      setUpdatedOrdersById((current) => ({
+        ...current,
+        [updatedOrder.id]: updatedOrder,
+      }));
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[order.id];
+        return next;
+      });
+      setMessage(`تم تحديث حالة الطلب ${order.id.slice(0, 8)} إلى ${updatedOrder.status}.`);
+    } catch (updateError: unknown) {
+      setError(extractApiError(updateError));
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
   return (
     <div className="moheet-page-container" style={{ padding: '0 20px', marginTop: '20px' }}>
       <div className="dashboard-section" style={{ margin: 0 }}>
         <h2 style={{color: '#0f1111'}}>{title}</h2>
         <hr style={{margin: '10px 0', border: '1px solid #ddd'}}/>
+        {message && (
+          <div style={{ marginBottom: '12px', color: '#1b5e20', fontWeight: 600 }}>{message}</div>
+        )}
+        {error && (
+          <div style={{ marginBottom: '12px', color: '#c62828', fontWeight: 600 }}>{error}</div>
+        )}
         <table className="dashboard-table">
           <thead><tr><th>رقم الطلب</th><th>الحالة</th><th>الإجمالي</th><th>الدفع</th></tr></thead>
           <tbody>
-            {orders.length === 0 ? (
+            {displayedOrders.length === 0 ? (
               <tr><td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>لا توجد طلبات مسجلة حالياً.</td></tr>
             ) : (
-              orders.map((order) => (
+              displayedOrders.map((order) => (
                 <tr key={order.id}>
                   <td>{order.id.slice(0, 8)}</td>
-                  <td><span className="status-pill">{order.status}</span></td>
+                  <td>
+                    <span className="status-pill">{orderStatusLabels[order.status]}</span>
+                    {canManageStatus && (
+                      <OrderStatusManager
+                        order={order}
+                        draft={drafts[order.id] ?? emptyOrderStatusDraft()}
+                        updating={updatingOrderId === order.id}
+                        onDraftChange={(changes) => updateDraft(order.id, changes)}
+                        onSubmit={() => handleStatusUpdate(order)}
+                      />
+                    )}
+                  </td>
                   <td style={{ fontWeight: 'bold', color: '#B12704' }}>{money(order.totalAmount)}</td>
                   <td>{order.paymentStatus}</td>
                 </tr>
@@ -399,6 +514,85 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function OrderStatusManager({
+  order,
+  draft,
+  updating,
+  onDraftChange,
+  onSubmit,
+}: {
+  order: Order;
+  draft: OrderStatusDraft;
+  updating: boolean;
+  onDraftChange: (changes: Partial<OrderStatusDraft>) => void;
+  onSubmit: () => void;
+}) {
+  const allowedStatuses = orderStatusTransitions[order.status];
+  const selectedStatus = draft.status;
+  const needsShippingDetails = selectedStatus === 'SHIPPED';
+
+  if (allowedStatuses.length === 0) {
+    return (
+      <div style={{ marginTop: '8px', color: '#64748b', fontSize: '12px' }}>
+        لا توجد انتقالات متاحة
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: '8px', marginTop: '10px', maxWidth: '260px' }}>
+      <select
+        value={selectedStatus}
+        onChange={(event) => onDraftChange({ status: event.target.value as OrderStatus | '' })}
+        disabled={updating}
+        style={{ minHeight: '32px' }}
+      >
+        <option value="">اختر الحالة التالية</option>
+        {allowedStatuses.map((status) => (
+          <option key={status} value={status}>
+            {orderStatusLabels[status]}
+          </option>
+        ))}
+      </select>
+
+      {needsShippingDetails && (
+        <>
+          <input
+            value={draft.shippingCarrier}
+            onChange={(event) => onDraftChange({ shippingCarrier: event.target.value })}
+            placeholder="شركة الشحن"
+            disabled={updating}
+            style={{ minHeight: '32px' }}
+          />
+          <input
+            value={draft.trackingNumber}
+            onChange={(event) => onDraftChange({ trackingNumber: event.target.value })}
+            placeholder="رقم التتبع"
+            disabled={updating}
+            style={{ minHeight: '32px' }}
+          />
+        </>
+      )}
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={updating || !selectedStatus}
+        style={{
+          minHeight: '32px',
+          background: updating || !selectedStatus ? '#94a3b8' : '#0f1111',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: updating || !selectedStatus ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {updating ? 'جارٍ التحديث...' : 'تحديث الحالة'}
+      </button>
     </div>
   );
 }

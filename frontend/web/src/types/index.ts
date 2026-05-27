@@ -150,6 +150,10 @@ export interface Order {
 
 export interface UpdateOrderStatusPayload {
   status: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  adminNotes?: string;
+  shippingCarrier?: string;
+  trackingNumber?: string;
 }
 
 export interface ShippingAddressPayload {
