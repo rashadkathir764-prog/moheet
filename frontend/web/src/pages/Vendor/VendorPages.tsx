@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { productsApi } from '../../api/products.api';
 import { ordersApi } from '../../api/orders.api';
+import type { VendorOrderItemRow } from '../../api/orders.api';
 import { categoriesApi } from '../../api/categories.api';
 import { commerceApi } from '../../api/commerce.api';
 import type { Category, CreateProductPayload, Product } from '../../types';
@@ -20,16 +21,6 @@ interface VendorProfile {
   userId: string;
   storeName: string;
   status: string;
-}
-
-interface VendorOrderItemRow {
-  orderId: string;
-  orderStatus: string;
-  item?: {
-    id?: string;
-    productName?: string;
-    quantity?: number;
-  };
 }
 
 export function VendorDashboard() {
@@ -500,7 +491,7 @@ export function VendorDashboard() {
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
-                    <tr><td colSpan={3} className="dashboard-note" style={{ textAlign: 'center' }}>لا توجد طلبات.</td></tr>
+                    <tr><td colSpan={3} className="dashboard-note" style={{ textAlign: 'center' }}>لا توجد طلبات واردة بعد</td></tr>
                   ) : (
                     items.map((row) => (
                       <tr key={`${row.orderId}-${row.item?.id}`}>

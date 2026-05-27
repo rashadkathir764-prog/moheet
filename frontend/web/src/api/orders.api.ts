@@ -8,21 +8,38 @@ import type {
   CheckoutOrderPayload,
 } from '../types';
 
-interface VendorItemsResponse {
+export interface VendorOrderItemRow {
+  orderId: string;
+  orderCreatedAt: string;
+  orderStatus: string;
+  customer?: { fullName?: string; email?: string; phone?: string };
+  item: {
+    id: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  };
+}
+
+interface VendorOrderItemApiRow {
+  id: string;
+  orderId: string;
+  productName: string;
+  quantity: number;
+  priceAtPurchase: number;
+  totalPrice: number;
+  order?: {
+    id: string;
+    status: string;
+    createdAt: string;
+    customer?: { fullName?: string; email?: string; phone?: string };
+  };
+}
+
+interface VendorItemsApiResponse {
   success: boolean;
-  data: Array<{
-    orderId: string;
-    orderCreatedAt: string;
-    orderStatus: string;
-    customer: { fullName: string; email: string; phone?: string };
-    item: {
-      id: string;
-      productName: string;
-      quantity: number;
-      unitPrice: number;
-      totalPrice: number;
-    };
-  }>;
+  data: VendorOrderItemApiRow[];
   meta: {
     total: number;
     page: number;
@@ -31,6 +48,10 @@ interface VendorItemsResponse {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   };
+}
+
+interface VendorItemsResponse extends Omit<VendorItemsApiResponse, 'data'> {
+  data: VendorOrderItemRow[];
 }
 
 export const ordersApi = {
@@ -50,10 +71,25 @@ export const ordersApi = {
 
   // VENDOR: عناصر طلبات منتجاتي
   getVendorItems: async (page = 1, limit = 20): Promise<VendorItemsResponse> => {
-    const { data } = await apiClient.get<VendorItemsResponse>('/orders/vendor-items', {
+    const { data } = await apiClient.get<VendorItemsApiResponse>('/orders/vendor-items', {
       params: { page, limit },
     });
-    return data;
+    return {
+      ...data,
+      data: data.data.map((row) => ({
+        orderId: row.order?.id ?? row.orderId,
+        orderCreatedAt: row.order?.createdAt ?? '',
+        orderStatus: row.order?.status ?? '',
+        customer: row.order?.customer,
+        item: {
+          id: row.id,
+          productName: row.productName,
+          quantity: row.quantity,
+          unitPrice: row.priceAtPurchase,
+          totalPrice: row.totalPrice,
+        },
+      })),
+    };
   },
 
   getOne: async (id: string): Promise<Order> => {
