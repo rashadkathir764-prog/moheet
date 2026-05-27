@@ -1,474 +1,197 @@
-# MOHEET | محيط - Database Schema Reference
-
-> Version: 1.0.0 MVP  
-> Phase: 0 - Docs-Driven Foundation  
-> Database: PostgreSQL 16+  
-> ORM target: TypeORM  
-> Last updated: 2026-05-20
-
-## 1. Purpose
-
-This document defines the MVP database model for MOHEET. It is the baseline for future TypeORM entities and migrations.
-
-The schema focuses on:
-
-- Users and role-based access.
-- Product catalog and categories.
-- Product images and inventory.
-- Customer carts.
-- Orders, order items, and status tracking.
-
-## 2. Design Principles
-
-- Use UUID primary keys for externally referenced records.
-- Use `TIMESTAMPTZ` for all timestamps.
-- Store money as `NUMERIC`, never floating point.
-- Store password hashes only, never plain-text passwords.
-- Keep inventory changes transactional.
-- Prefer explicit join tables for many-to-many relationships.
-- Keep soft-delete support for business records where recovery is useful.
-
-## 3. Entity Relationship Overview
-
-```text
-users 1 ---- * products
-users 1 ---- * carts
-users 1 ---- * orders
-users 1 ---- * addresses
-
-categories 1 ---- * categories
-categories * ---- * products via product_categories
-
-products 1 ---- * product_images
-products 1 ---- * cart_items
-products 1 ---- * order_items
-
-carts 1 ---- * cart_items
-orders 1 ---- * order_items
-orders 1 ---- * order_status_history
-```
-
-## 4. Enum Values
-
-Recommended database enum values:
-
-```sql
-CREATE TYPE user_role AS ENUM ('ADMIN', 'VENDOR', 'CUSTOMER');
-
-CREATE TYPE order_status AS ENUM (
-  'PENDING',
-  'CONFIRMED',
-  'PROCESSING',
-  'SHIPPED',
-  'DELIVERED',
-  'CANCELLED',
-  'REFUNDED'
-);
-
-CREATE TYPE payment_method AS ENUM (
-  'CASH_ON_DELIVERY',
-  'CARD',
-  'BANK_TRANSFER'
-);
-
-CREATE TYPE payment_status AS ENUM (
-  'PENDING',
-  'PAID',
-  'FAILED',
-  'REFUNDED'
-);
-```
-
-If TypeORM enum portability becomes a concern, these values can be represented as validated `VARCHAR` columns with database checks.
-
-## 5. Required Extensions
-
-```sql
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-```
-
-`pgcrypto` provides `gen_random_uuid()`. `pg_trgm` supports efficient fuzzy search for product and category names.
-
-## 6. `users`
-
-Stores all platform accounts.
-
-Relationship summary:
-
-- One user can own many products when role is `VENDOR`.
-- One user can create many orders when role is `CUSTOMER`.
-- One user can have many saved addresses.
-
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  full_name VARCHAR(150) NOT NULL,
-  phone VARCHAR(30) UNIQUE,
-  avatar_url TEXT,
-  role user_role NOT NULL DEFAULT 'CUSTOMER',
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  is_verified BOOLEAN NOT NULL DEFAULT FALSE,
-  refresh_token_hash TEXT,
-  last_login_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_is_active ON users(is_active);
-```
-
-Security notes:
-
-- `password_hash` must be generated using bcrypt with 12 salt rounds.
-- `refresh_token_hash` stores a hashed refresh token, not the raw token.
-- Inactive users must be blocked from login and token validation.
-
-## 7. `addresses`
-
-Stores customer delivery addresses.
-
-Relationship summary:
-
-- `users` one-to-many `addresses`.
-
-```sql
-CREATE TABLE addresses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  label VARCHAR(50) NOT NULL DEFAULT 'Home',
-  recipient_name VARCHAR(150) NOT NULL,
-  phone VARCHAR(30) NOT NULL,
-  country VARCHAR(100) NOT NULL DEFAULT 'Yemen',
-  city VARCHAR(100) NOT NULL,
-  district VARCHAR(100),
-  street TEXT,
-  full_address TEXT NOT NULL,
-  is_default BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_addresses_user_id ON addresses(user_id);
-CREATE INDEX idx_addresses_city ON addresses(city);
-```
-
-## 8. `categories`
-
-Stores hierarchical product categories.
-
-Relationship summary:
-
-- `categories` one-to-many self relationship through `parent_id`.
-- `categories` many-to-many `products` through `product_categories`.
-
-```sql
-CREATE TABLE categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  parent_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-  name VARCHAR(150) NOT NULL,
-  slug VARCHAR(180) NOT NULL UNIQUE,
-  description TEXT,
-  image_url TEXT,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_categories_parent_id ON categories(parent_id);
-CREATE INDEX idx_categories_slug ON categories(slug);
-CREATE INDEX idx_categories_is_active ON categories(is_active);
-```
-
-## 9. `products`
-
-Stores catalog items and stock information.
-
-Relationship summary:
-
-- `users` one-to-many `products` as vendor ownership.
-- `products` many-to-many `categories` through `product_categories`.
-- `products` one-to-many `product_images`.
-- `products` one-to-many `cart_items`.
-- `products` one-to-many `order_items`.
-
-```sql
-CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  vendor_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  name VARCHAR(255) NOT NULL,
-  slug VARCHAR(280) NOT NULL UNIQUE,
-  description TEXT,
-  price NUMERIC(12, 2) NOT NULL CHECK (price >= 0),
-  compare_price NUMERIC(12, 2) CHECK (compare_price >= 0),
-  sku VARCHAR(100) UNIQUE,
-  stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
-  reserved_quantity INTEGER NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0),
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-  weight_kg NUMERIC(8, 3),
-  thumbnail_url TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_products_vendor_id ON products(vendor_id);
-CREATE INDEX idx_products_slug ON products(slug);
-CREATE INDEX idx_products_is_active ON products(is_active);
-CREATE INDEX idx_products_is_featured ON products(is_featured);
-CREATE INDEX idx_products_price ON products(price);
-CREATE INDEX idx_products_name_trgm ON products USING GIN (name gin_trgm_ops);
-```
-
-Inventory rule:
-
-```text
-available_stock = stock_quantity - reserved_quantity
-```
-
-Checkout must validate and decrement stock inside a transaction.
-
-## 10. `product_categories`
-
-Join table for product/category many-to-many mapping.
-
-Relationship summary:
-
-- `products` many-to-many `categories`.
-
-```sql
-CREATE TABLE product_categories (
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  category_id UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
-  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (product_id, category_id)
-);
-
-CREATE INDEX idx_product_categories_category_id ON product_categories(category_id);
-CREATE UNIQUE INDEX uq_product_primary_category
-  ON product_categories(product_id)
-  WHERE is_primary = TRUE;
-```
-
-Each product may have many categories, but only one primary category.
-
-## 11. `product_images`
-
-Stores image metadata for products.
-
-Relationship summary:
-
-- `products` one-to-many `product_images`.
-
-```sql
-CREATE TABLE product_images (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  image_url TEXT NOT NULL,
-  alt_text VARCHAR(255),
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_product_images_product_id ON product_images(product_id);
-CREATE UNIQUE INDEX uq_product_primary_image
-  ON product_images(product_id)
-  WHERE is_primary = TRUE;
-```
-
-Images should be stored as files or object-storage assets. The database stores paths/URLs and metadata only.
-
-## 12. `carts`
-
-Stores active cart containers.
-
-Relationship summary:
-
-- `users` one-to-many `carts`.
-- `carts` one-to-many `cart_items`.
-
-```sql
-CREATE TABLE carts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_carts_user_id ON carts(user_id);
-CREATE UNIQUE INDEX uq_active_cart_per_user
-  ON carts(user_id)
-  WHERE is_active = TRUE;
-```
-
-MVP rule: one active cart per user.
-
-## 13. `cart_items`
-
-Stores product quantities inside a cart.
-
-Relationship summary:
-
-- `carts` one-to-many `cart_items`.
-- `products` one-to-many `cart_items`.
-
-```sql
-CREATE TABLE cart_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cart_id UUID NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  quantity INTEGER NOT NULL CHECK (quantity > 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (cart_id, product_id)
-);
-
-CREATE INDEX idx_cart_items_cart_id ON cart_items(cart_id);
-CREATE INDEX idx_cart_items_product_id ON cart_items(product_id);
-```
-
-## 14. `orders`
-
-Stores checkout records.
-
-Relationship summary:
-
-- `users` one-to-many `orders`.
-- `addresses` one-to-many `orders` optionally.
-- `orders` one-to-many `order_items`.
-- `orders` one-to-many `order_status_history`.
-
-```sql
-CREATE TABLE orders (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  address_id UUID REFERENCES addresses(id) ON DELETE SET NULL,
-  order_number VARCHAR(50) NOT NULL UNIQUE,
-  status order_status NOT NULL DEFAULT 'PENDING',
-  subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0),
-  shipping_fee NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (shipping_fee >= 0),
-  discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
-  total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0),
-  payment_method payment_method NOT NULL DEFAULT 'CASH_ON_DELIVERY',
-  payment_status payment_status NOT NULL DEFAULT 'PENDING',
-  customer_notes TEXT,
-  admin_notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  cancelled_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_payment_status ON orders(payment_status);
-CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
-```
-
-## 15. `order_items`
-
-Stores immutable product snapshots at checkout time.
-
-Relationship summary:
-
-- `orders` one-to-many `order_items`.
-- `products` one-to-many `order_items`.
-- `users` one-to-many `order_items` through `vendor_id`.
-
-```sql
-CREATE TABLE order_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-  vendor_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  product_name VARCHAR(255) NOT NULL,
-  product_sku VARCHAR(100),
-  unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
-  quantity INTEGER NOT NULL CHECK (quantity > 0),
-  line_total NUMERIC(12, 2) NOT NULL CHECK (line_total >= 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_product_id ON order_items(product_id);
-CREATE INDEX idx_order_items_vendor_id ON order_items(vendor_id);
-```
-
-`product_name`, `product_sku`, and `unit_price` are snapshots. They must not change when the product is edited later.
-
-## 16. `order_status_history`
-
-Stores an audit trail for order lifecycle changes.
-
-Relationship summary:
-
-- `orders` one-to-many `order_status_history`.
-- `users` one-to-many `order_status_history` as actor.
-
-```sql
-CREATE TABLE order_status_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  from_status order_status,
-  to_status order_status NOT NULL,
-  note TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_order_status_history_order_id ON order_status_history(order_id);
-CREATE INDEX idx_order_status_history_created_at ON order_status_history(created_at DESC);
-```
-
-## 17. Order Status Transitions
-
-Allowed transitions:
-
-| From | To |
-| --- | --- |
-| `PENDING` | `CONFIRMED`, `CANCELLED` |
-| `CONFIRMED` | `PROCESSING`, `CANCELLED` |
-| `PROCESSING` | `SHIPPED`, `CANCELLED` |
-| `SHIPPED` | `DELIVERED` |
-| `DELIVERED` | `REFUNDED` |
-| `CANCELLED` | none |
-| `REFUNDED` | none |
-
-Invalid transitions must be rejected by the backend service layer.
-
-## 18. Transaction Rules
-
-Checkout transaction must:
-
-1. Lock requested product rows.
-2. Validate products exist and are active.
-3. Validate requested quantities are available.
-4. Decrement stock or update reserved stock according to the selected strategy.
-5. Create the order.
-6. Create all order items.
-7. Write initial order status history.
-8. Commit all changes together.
-
-If any step fails, the entire checkout must roll back.
-
-## 19. Migration Policy
-
-Development may use schema synchronization only before production data exists.
-
-Production rules:
-
-- Use explicit migrations.
-- Do not rely on automatic schema synchronization.
-- Review destructive migrations manually.
-- Keep seed data separate from schema migrations.
-- Never store real secrets in migration or seed files.
+# MOHEET Database Schema Reference
+
+Last aligned: 2026-05-27
+
+This document describes the schema that is implemented in the current backend
+entities and migrations. It is not a roadmap and does not list planned tables as
+implemented tables.
+
+Sources of truth:
+
+- `backend/src/**/entities/*.ts`
+- `backend/src/migrations/*.ts`
+- `backend/src/common/enums/*.ts`
+
+## Schema Notes
+
+- Database: PostgreSQL.
+- ORM: TypeORM.
+- Primary keys are UUIDs generated with `uuid_generate_v4()`.
+- Migrations enable `uuid-ossp` for UUID generation and `pg_trgm` for product
+  name search indexing.
+- Enum-like fields are stored as `varchar` columns and constrained in
+  application code.
+- Date columns use `created_at` / `updated_at` where present. Some append-only
+  tables only have `created_at`.
+
+## Current Tables
+
+| Table | Key Columns | Relationships / Notes |
+| --- | --- | --- |
+| `users` | `id`, `email`, `password_hash`, `full_name`, `phone`, `avatar_url`, `role`, `is_active`, `is_verified`, `refresh_token`, `created_at`, `updated_at` | `role` is `ADMIN`, `VENDOR`, or `CUSTOMER`. Users own orders, carts, addresses, favorites, reviews, vendor profiles, notifications, payments, shipments, and user events. `email` is indexed and unique. |
+| `categories` | `id`, `name`, `slug`, `description`, `image_url`, `sort_order`, `is_active`, `parent_id`, `created_at`, `updated_at` | Self-referencing parent/children tree. Products belong to one category through `products.category_id`. `slug` is unique. |
+| `products` | `id`, `vendor_id`, `category_id`, `name`, `slug`, `description`, `price`, `compare_price`, `sku`, `brand`, `tags`, `stock_quantity`, `is_active`, `is_featured`, `weight_kg`, `thumbnail_url`, `view_count`, `cart_add_count`, `purchase_count`, `favorite_count`, `rating_average`, `review_count`, `created_at`, `updated_at`, `deleted_at` | Product belongs to vendor user and category. Product has many images, cart items, order items, favorites, reviews, and user events. `slug` is unique. `sku` is unique when present. Product name has a trigram index. `deleted_at` supports soft deletion. |
+| `product_images` | `id`, `product_id`, `image_url`, `alt_text`, `sort_order`, `created_at` | Image belongs to product. There is no `is_primary`; the current main image is represented by `products.thumbnail_url` and service logic. |
+| `carts` | `id`, `user_id`, `created_at`, `updated_at` | One cart per user. `user_id` is unique. Cart has many cart items. |
+| `cart_items` | `id`, `cart_id`, `product_id`, `quantity`, `created_at`, `updated_at` | Cart item belongs to cart and product. Unique pair: `cart_id` + `product_id`. |
+| `orders` | `id`, `customer_id`, `shipping_address`, `status`, `payment_method`, `payment_status`, `subtotal`, `shipping_fee`, `discount_amount`, `coupon_code`, `total_amount`, `notes`, `admin_notes`, `shipping_carrier`, `tracking_number`, `shipped_at`, `delivered_at`, `cancelled_at`, `refunded_at`, `created_at`, `updated_at` | Order belongs to customer user and has many order items. Shipping address is stored as JSON snapshot in `shipping_address`; there is no `address_id` column. |
+| `order_items` | `id`, `order_id`, `product_id`, `product_name`, `product_thumbnail`, `vendor_id`, `price_at_purchase`, `quantity`, `total_price`, `created_at` | Order item belongs to order and product. `vendor_id` is stored as a vendor snapshot for vendor order queries. The item snapshots product name, thumbnail, purchase price, quantity, and line total. |
+| `payments` | `id`, `order_id`, `customer_id`, `method`, `status`, `amount`, `currency`, `provider`, `provider_reference`, `failure_reason`, `metadata`, `authorized_at`, `captured_at`, `failed_at`, `refunded_at`, `created_at`, `updated_at` | Payment belongs to order and customer. `provider_reference` is unique when present. Default currency is `YER`; default provider is `INTERNAL_SIMULATOR`. |
+| `shipments` | `id`, `order_id`, `customer_id`, `carrier_name`, `tracking_number`, `status`, `origin`, `destination`, `shipped_at`, `estimated_delivery_at`, `delivered_at`, `created_at`, `updated_at` | Shipment belongs to order and customer. One shipment per order. Shipment has many shipment events. `tracking_number` is unique when present. |
+| `shipment_events` | `id`, `shipment_id`, `status`, `location`, `message`, `occurred_at`, `created_at` | Append-only status trail for shipment progress. Event belongs to shipment. |
+| `addresses` | `id`, `user_id`, `label`, `recipient_name`, `phone`, `city`, `district`, `street`, `full_address`, `country`, `postal_code`, `latitude`, `longitude`, `is_default`, `created_at`, `updated_at` | Address belongs to user. A partial unique index enforces one default address per user when `is_default = true`. |
+| `favorites` | `id`, `user_id`, `product_id`, `created_at` | Favorite belongs to user and product. Unique pair: `user_id` + `product_id`. |
+| `product_reviews` | `id`, `user_id`, `product_id`, `order_id`, `rating`, `title`, `comment`, `is_verified_purchase`, `status`, `created_at`, `updated_at` | Review belongs to user and product; order relation is optional. `rating` is constrained to 1 through 5. Unique pair: `user_id` + `product_id`. |
+| `coupons` | `id`, `code`, `name`, `description`, `type`, `value`, `min_order_amount`, `max_discount_amount`, `usage_limit`, `used_count`, `per_user_limit`, `starts_at`, `ends_at`, `is_active`, `created_at`, `updated_at` | Coupon has many coupon redemptions. `code` is unique. |
+| `coupon_redemptions` | `id`, `coupon_id`, `user_id`, `order_id`, `discount_amount`, `created_at` | Redemption belongs to coupon, user, and order. Unique pair: `coupon_id` + `order_id`. |
+| `vendor_profiles` | `id`, `user_id`, `store_name`, `slug`, `description`, `business_email`, `business_phone`, `business_address`, `status`, `admin_notes`, `approved_at`, `created_at`, `updated_at` | One vendor profile per user. `slug` is unique. `status` is indexed. Products still reference the vendor through `products.vendor_id`, not `vendor_profiles.id`. |
+| `notifications` | `id`, `user_id`, `type`, `title`, `message`, `data`, `read_at`, `created_at` | Notification belongs to user. `data` is JSON metadata. Unread notifications have `read_at = null`. |
+| `user_events` | `id`, `user_id`, `session_id`, `type`, `source`, `product_id`, `category_id`, `order_id`, `search_query`, `metadata`, `created_at` | Analytics event table. User, product, category, and order references are optional and use `ON DELETE SET NULL` in migrations. `metadata` is JSONB and indexed with GIN. |
+
+## Important Relationships
+
+- `user -> orders`: `orders.customer_id` references `users.id`.
+- `user -> cart`: `carts.user_id` references `users.id` and is unique.
+- `user -> addresses`: `addresses.user_id` references `users.id`.
+- `vendor -> products`: `products.vendor_id` references `users.id`.
+- `product -> images`: `product_images.product_id` references `products.id`.
+- `product -> category`: `products.category_id` references `categories.id`.
+- `order -> order_items`: `order_items.order_id` references `orders.id`.
+- `order_item -> product`: `order_items.product_id` references `products.id`.
+- `order_item -> vendor`: `order_items.vendor_id` stores the vendor user ID snapshot
+  used by vendor order queries.
+- `order -> payments`: `payments.order_id` references `orders.id`.
+- `order -> shipment`: `shipments.order_id` references `orders.id` and is unique.
+- `user_events -> user/product/category/order`: all are optional analytics context
+  references.
+
+## Status and Type Values
+
+### User Roles
+
+- `ADMIN`
+- `VENDOR`
+- `CUSTOMER`
+
+### Order Status
+
+- `PENDING`
+- `CONFIRMED`
+- `PROCESSING`
+- `SHIPPED`
+- `DELIVERED`
+- `CANCELLED`
+- `REFUNDED`
+
+### Payment Method
+
+- `CASH_ON_DELIVERY`
+- `CREDIT_CARD`
+- `BANK_TRANSFER`
+
+### Payment Status
+
+- `PENDING`
+- `PAID`
+- `FAILED`
+- `REFUNDED`
+
+### Shipment Status
+
+- `PENDING`
+- `READY_TO_SHIP`
+- `SHIPPED`
+- `IN_TRANSIT`
+- `OUT_FOR_DELIVERY`
+- `DELIVERED`
+- `FAILED`
+- `RETURNED`
+- `CANCELLED`
+
+### User Event Type
+
+- `product_view`
+- `search`
+- `add_to_cart`
+- `update_cart`
+- `remove_from_cart`
+- `clear_cart`
+- `add_to_favorites`
+- `remove_from_favorites`
+- `checkout_started`
+- `purchase`
+- `recommendation_impression`
+- `recommendation_click`
+
+### User Event Source
+
+- `web`
+- `mobile`
+- `api`
+
+## Analytics
+
+Analytics is split into two different data sources:
+
+1. Time-bounded events from `user_events`.
+2. Cumulative all-time product signals stored directly on `products`.
+
+Product signal columns are cumulative all-time counters:
+
+- `products.view_count`
+- `products.cart_add_count`
+- `products.purchase_count`
+- `products.favorite_count`
+
+The analytics event fields are:
+
+- `user_events.type`
+- `user_events.session_id`
+- `user_events.source`
+- `user_events.product_id`
+- `user_events.category_id`
+- `user_events.order_id`
+- `user_events.search_query`
+- `user_events.metadata`
+- `user_events.created_at`
+
+The admin analytics summary endpoint supports:
+
+- `range=today`
+- `range=7d`
+- `range=30d`
+- `range=all`
+
+If the range is omitted or invalid, the backend defaults to `7d`. Range-sensitive
+metrics are calculated from `user_events`; product signal leaderboards are marked
+with `productSignalsScope: "allTime"` because the counters on `products` are not
+currently range-bounded.
+
+## Planned / Not Implemented Yet
+
+These items are not implemented in the current entities or migrations and should
+not be treated as existing schema:
+
+- `order_status_history` table is not implemented.
+- `reserved_quantity` on `products` is not implemented.
+- `product_categories` many-to-many table is not implemented; products currently
+  use a single `category_id`.
+- `product_images.is_primary` is not implemented.
+- `orders.order_number` is not implemented.
+- `orders.address_id` is not implemented; the order stores a JSON shipping
+  address snapshot in `shipping_address`.
+- `order_items.product_sku`, `unit_price`, and `line_total` are not implemented;
+  current columns are `product_name`, `product_thumbnail`, `vendor_id`,
+  `price_at_purchase`, and `total_price`.
+
+## Migration Files
+
+Current migration files define the implemented schema:
+
+- `InitialSchema1700000000000`
+- `AddVendorProfileAndAdminFields1710000000000`
+- `AddPaymentsAndShipments1720000000000`
+- `AddAddressesFavoritesReviewsCoupons1730000000000`
+- `AddUserEvents1740000000000`
+
+Update this document whenever entities or migrations change.
