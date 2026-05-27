@@ -401,10 +401,11 @@ export class OrdersService {
       throw new NotFoundException(`الطلب بالمعرف ${id} غير موجود`);
     }
 
-    // CUSTOMER: يرى طلباته فقط
+    // Full order details are only for admins or the customer who owns the order.
     if (
-      requestingUser.role === Role.CUSTOMER &&
-      order.customerId !== requestingUser.id
+      requestingUser.role !== Role.ADMIN &&
+      (requestingUser.role !== Role.CUSTOMER ||
+        order.customerId !== requestingUser.id)
     ) {
       throw new ForbiddenException('ليس لديك صلاحية لعرض هذا الطلب');
     }

@@ -31,6 +31,15 @@ describe('OrdersController permissions', () => {
     expect(roles).toEqual([Role.VENDOR, Role.ADMIN]);
   });
 
+  it('keeps full order details restricted to customers and admins', () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      OrdersController.prototype.findOne,
+    );
+
+    expect(roles).toEqual([Role.CUSTOMER, Role.ADMIN]);
+  });
+
   it('keeps admin order status management restricted to admins', () => {
     const roles = Reflect.getMetadata(
       ROLES_KEY,

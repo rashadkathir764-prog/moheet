@@ -140,7 +140,7 @@ export class OrdersController {
   // 🔍 GET /api/v1/orders/:id — تفاصيل طلب واحد
   // ─────────────────────────────────────────────────────────────────────────
   @Get(':id')
-  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
+  @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({
     summary: 'جلب تفاصيل طلب (CUSTOMER: طلبه فقط | ADMIN: أي طلب)',
   })
