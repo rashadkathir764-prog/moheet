@@ -50,7 +50,7 @@ export class OrdersController {
   // 🛒 POST /api/v1/orders — إنشاء طلب جديد
   // ─────────────────────────────────────────────────────────────────────────
   @Post()
-  @Roles(Role.CUSTOMER, Role.VENDOR, Role.ADMIN)
+  @Roles(Role.CUSTOMER)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'إنشاء طلب شراء جديد مع قفل المخزون' })
   @ApiResponse({ status: 201, description: 'تم إنشاء الطلب بنجاح' })

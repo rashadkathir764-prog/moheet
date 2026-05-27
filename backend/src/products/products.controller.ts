@@ -30,6 +30,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { UploadProductImageDto } from './dto/upload-product-image.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -79,6 +80,7 @@ export class ProductsController {
   // ─────────────────────────────────────────────────────────────────────────
   @Public()
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'جلب قائمة المنتجات مع فلاتر وبحث وتصفح بالصفحات' })
   @ApiQuery({ name: 'q', required: false, description: 'نص البحث' })
   @ApiQuery({ name: 'page', required: false, type: Number })
