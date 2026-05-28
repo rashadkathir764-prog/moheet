@@ -139,6 +139,30 @@ describe('OrdersService permissions and lifecycle', () => {
     });
   });
 
+  it('loads admin order details with items, history, payments, and shipments', async () => {
+    const { service, ordersRepository } = makeService();
+
+    await service.findOne('order-1', {
+      id: 'admin-1',
+      role: Role.ADMIN,
+    } as any);
+
+    expect(ordersRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'order-1' },
+        relations: expect.arrayContaining([
+          'customer',
+          'items',
+          'items.product',
+          'statusHistory',
+          'payments',
+          'shipments',
+          'shipments.events',
+        ]),
+      }),
+    );
+  });
+
   it('rejects status transition from CANCELLED to DELIVERED', async () => {
     const { service } = makeService({
       order: {

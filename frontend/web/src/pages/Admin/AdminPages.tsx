@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -71,13 +71,13 @@ const orderStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
 };
 
 const orderStatusLabels: Record<OrderStatus, string> = {
-  PENDING: 'Pending',
-  CONFIRMED: 'Confirmed',
-  PROCESSING: 'Processing',
-  SHIPPED: 'Shipped',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
-  REFUNDED: 'Refunded',
+  PENDING: 'قيد الانتظار',
+  CONFIRMED: 'مؤكد',
+  PROCESSING: 'قيد التجهيز',
+  SHIPPED: 'تم الشحن',
+  DELIVERED: 'تم التسليم',
+  CANCELLED: 'ملغي',
+  REFUNDED: 'مسترد',
 };
 
 interface OrderStatusDraft {
@@ -93,6 +93,24 @@ const emptyOrderStatusDraft = (): OrderStatusDraft => ({
   trackingNumber: '',
   note: '',
 });
+
+const orderStatusText = (status?: OrderStatus | null) =>
+  status ? orderStatusLabels[status] : 'بداية';
+
+const textOrEmpty = (value?: string | number | null) => {
+  if (value === 0) return '0';
+  return value ? String(value) : 'غير متوفر';
+};
+
+const formatDateTime = (value?: string | Date | null) => {
+  if (!value) return 'غير متوفر';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'غير متوفر';
+  return date.toLocaleString('ar-SA');
+};
+
+const getOrderItemUnitPrice = (item: NonNullable<Order['items']>[number]) =>
+  item.priceAtPurchase ?? item.unitPrice ?? 0;
 
 export function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -419,6 +437,10 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
   const displayedOrders = orders.map((order) => updatedOrdersById[order.id] ?? order);
 
   const updateDraft = (orderId: string, changes: Partial<OrderStatusDraft>) => {
@@ -459,22 +481,60 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
     try {
       setUpdatingOrderId(order.id);
       const updatedOrder = await ordersApi.updateStatus(order.id, payload);
+      let rowOrder = updatedOrder;
+
+      if (selectedOrderId === order.id) {
+        try {
+          const freshOrder = await ordersApi.getOne(order.id);
+          setSelectedOrder(freshOrder);
+          setDetailsError('');
+          rowOrder = freshOrder;
+        } catch (detailsFetchError: unknown) {
+          setDetailsError(extractApiError(detailsFetchError));
+        }
+      }
 
       setUpdatedOrdersById((current) => ({
         ...current,
-        [updatedOrder.id]: updatedOrder,
+        [rowOrder.id]: rowOrder,
       }));
       setDrafts((current) => {
         const next = { ...current };
         delete next[order.id];
         return next;
       });
-      setMessage(`تم تحديث حالة الطلب ${order.id.slice(0, 8)} إلى ${updatedOrder.status}.`);
+      setMessage(`تم تحديث حالة الطلب ${order.id.slice(0, 8)} إلى ${orderStatusText(updatedOrder.status)}.`);
     } catch (updateError: unknown) {
       setError(extractApiError(updateError));
     } finally {
       setUpdatingOrderId(null);
     }
+  };
+
+  const openOrderDetails = async (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setSelectedOrder(null);
+    setDetailsLoading(true);
+    setDetailsError('');
+
+    try {
+      const order = await ordersApi.getOne(orderId);
+      setSelectedOrder(order);
+      setUpdatedOrdersById((current) => ({
+        ...current,
+        [order.id]: order,
+      }));
+    } catch (detailsFetchError: unknown) {
+      setDetailsError(extractApiError(detailsFetchError));
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const closeOrderDetails = () => {
+    setSelectedOrderId(null);
+    setSelectedOrder(null);
+    setDetailsError('');
   };
 
   return (
@@ -495,24 +555,60 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
               <tr><td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>لا توجد طلبات مسجلة حالياً.</td></tr>
             ) : (
               displayedOrders.map((order) => (
-                <tr key={order.id}>
-                  <td>{order.id.slice(0, 8)}</td>
-                  <td>
-                    <span className="status-pill">{orderStatusLabels[order.status]}</span>
-                    {canManageStatus && (
-                      <OrderStatusManager
-                        order={order}
-                        draft={drafts[order.id] ?? emptyOrderStatusDraft()}
-                        updating={updatingOrderId === order.id}
-                        onDraftChange={(changes) => updateDraft(order.id, changes)}
-                        onSubmit={() => handleStatusUpdate(order)}
-                      />
-                    )}
-                    {canManageStatus && <OrderStatusHistoryPreview order={order} />}
-                  </td>
-                  <td style={{ fontWeight: 'bold', color: '#B12704' }}>{money(order.totalAmount)}</td>
-                  <td>{order.paymentStatus}</td>
-                </tr>
+                <Fragment key={order.id}>
+                  <tr>
+                    <td>
+                      <div style={{ display: 'grid', gap: '6px' }}>
+                        <span>{order.id.slice(0, 8)}</span>
+                        {canManageStatus && (
+                          <button
+                            type="button"
+                            onClick={() => openOrderDetails(order.id)}
+                            style={{
+                              width: 'fit-content',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '4px',
+                              background: selectedOrderId === order.id ? '#e2e8f0' : '#fff',
+                              color: '#0f172a',
+                              cursor: 'pointer',
+                              padding: '5px 8px',
+                              fontSize: '12px',
+                            }}
+                          >
+                            عرض التفاصيل
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="status-pill">{orderStatusLabels[order.status]}</span>
+                      {canManageStatus && (
+                        <OrderStatusManager
+                          order={order}
+                          draft={drafts[order.id] ?? emptyOrderStatusDraft()}
+                          updating={updatingOrderId === order.id}
+                          onDraftChange={(changes) => updateDraft(order.id, changes)}
+                          onSubmit={() => handleStatusUpdate(order)}
+                        />
+                      )}
+                      {canManageStatus && <OrderStatusHistoryPreview order={order} />}
+                    </td>
+                    <td style={{ fontWeight: 'bold', color: '#B12704' }}>{money(order.totalAmount)}</td>
+                    <td>{order.paymentStatus}</td>
+                  </tr>
+                  {canManageStatus && selectedOrderId === order.id && (
+                    <tr>
+                      <td colSpan={4} style={{ padding: 0, background: '#f8fafc' }}>
+                        <OrderDetailsPanel
+                          order={selectedOrder}
+                          loading={detailsLoading}
+                          error={detailsError}
+                          onClose={closeOrderDetails}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))
             )}
           </tbody>
@@ -619,10 +715,264 @@ function OrderStatusHistoryPreview({ order }: { order: Order }) {
   return (
     <div style={{ marginTop: '8px', color: '#475569', fontSize: '12px', lineHeight: 1.5 }}>
       <div>
-        آخر تغيير: {orderStatusLabels[latest.fromStatus ?? 'PENDING']} -&gt; {orderStatusLabels[latest.toStatus]}
+        آخر تغيير: {orderStatusText(latest.fromStatus)} -&gt; {orderStatusText(latest.toStatus)}
       </div>
       <div>بواسطة: {latest.changedByRole ?? 'SYSTEM'}</div>
       {latest.note && <div>ملاحظة: {latest.note}</div>}
+    </div>
+  );
+}
+
+function OrderDetailsPanel({
+  order,
+  loading,
+  error,
+  onClose,
+}: {
+  order: Order | null;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  const items = order?.items ?? [];
+  const history = order?.statusHistory ?? [];
+  const address = order?.shippingAddress;
+  const payments = order?.payments ?? [];
+  const shipments = order?.shipments ?? [];
+  const fallbackShipment =
+    order?.shippingCarrier || order?.trackingNumber
+      ? {
+          carrierName: order.shippingCarrier ?? '',
+          trackingNumber: order.trackingNumber ?? '',
+          status: order.status,
+        }
+      : null;
+
+  return (
+    <section
+      dir="rtl"
+      style={{
+        marginTop: '16px',
+        border: '1px solid #e2e8f0',
+        borderRadius: '6px',
+        padding: '16px',
+        background: '#fff',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
+        <h3 style={{ margin: 0, color: '#0f172a' }}>تفاصيل الطلب</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            border: '1px solid #cbd5e1',
+            borderRadius: '4px',
+            background: '#fff',
+            cursor: 'pointer',
+            padding: '6px 10px',
+          }}
+        >
+          إغلاق
+        </button>
+      </div>
+
+      {loading && <p style={{ color: '#64748b' }}>جاري تحميل تفاصيل الطلب...</p>}
+      {error && <p style={{ color: '#c62828', fontWeight: 600 }}>تعذر تحميل التفاصيل: {error}</p>}
+      {!loading && !error && !order && (
+        <p style={{ color: '#64748b' }}>لا توجد تفاصيل متاحة لهذا الطلب.</p>
+      )}
+
+      {order && (
+        <div style={{ display: 'grid', gap: '18px', marginTop: '14px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            <DetailField label="رقم الطلب" value={order.id} />
+            <DetailField label="الحالة الحالية" value={orderStatusText(order.status)} />
+            <DetailField label="حالة الدفع" value={order.paymentStatus} />
+            <DetailField label="طريقة الدفع" value={order.paymentMethod} />
+            <DetailField label="الإجمالي" value={money(order.totalAmount)} />
+            <DetailField label="المجموع الفرعي" value={money(order.subtotal)} />
+            <DetailField label="رسوم الشحن" value={money(order.shippingFee)} />
+            <DetailField label="الخصم" value={money(order.discountAmount)} />
+            <DetailField label="تاريخ الإنشاء" value={formatDateTime(order.createdAt)} />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '14px',
+            }}
+          >
+            <section style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px' }}>
+              <h4 style={{ marginTop: 0 }}>بيانات العميل</h4>
+              <DetailField label="الاسم" value={textOrEmpty(order.customer?.fullName)} />
+              <DetailField label="البريد" value={textOrEmpty(order.customer?.email)} />
+              <DetailField label="الهاتف" value={textOrEmpty(order.customer?.phone)} />
+            </section>
+
+            <section style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px' }}>
+              <h4 style={{ marginTop: 0 }}>عنوان الشحن</h4>
+              {address ? (
+                <>
+                  <DetailField label="المستلم" value={textOrEmpty(address.fullName)} />
+                  <DetailField label="الهاتف" value={textOrEmpty(address.phone)} />
+                  <DetailField label="المدينة" value={textOrEmpty(address.city)} />
+                  <DetailField label="العنوان" value={textOrEmpty(address.fullAddress)} />
+                  <DetailField label="الدولة" value={textOrEmpty(address.country)} />
+                  <DetailField
+                    label="الإحداثيات"
+                    value={
+                      address.latitude !== undefined || address.longitude !== undefined
+                        ? `${textOrEmpty(address.latitude)}, ${textOrEmpty(address.longitude)}`
+                        : 'غير متوفر'
+                    }
+                  />
+                </>
+              ) : (
+                <p style={{ color: '#64748b' }}>لا توجد بيانات شحن</p>
+              )}
+            </section>
+          </div>
+
+          <section>
+            <h4>عناصر الطلب</h4>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>المنتج</th>
+                    <th>الكمية</th>
+                    <th>السعر وقت الشراء</th>
+                    <th>الإجمالي</th>
+                    <th>التاجر</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: '#64748b' }}>
+                        لا توجد عناصر في الطلب
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{textOrEmpty(item.productName)}</td>
+                        <td>{item.quantity}</td>
+                        <td>{money(getOrderItemUnitPrice(item))}</td>
+                        <td>{money(item.totalPrice)}</td>
+                        <td>{textOrEmpty(item.vendorId)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h4>تاريخ الحالات</h4>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>من</th>
+                    <th>إلى</th>
+                    <th>بواسطة</th>
+                    <th>ملاحظة</th>
+                    <th>التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: '#64748b' }}>
+                        لا يوجد سجل حالات بعد
+                      </td>
+                    </tr>
+                  ) : (
+                    history.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{orderStatusText(entry.fromStatus)}</td>
+                        <td>{orderStatusText(entry.toStatus)}</td>
+                        <td>{textOrEmpty(entry.changedByRole)}</td>
+                        <td>{textOrEmpty(entry.note)}</td>
+                        <td>{formatDateTime(entry.createdAt)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '14px',
+            }}
+          >
+            <section style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px' }}>
+              <h4 style={{ marginTop: 0 }}>الدفع</h4>
+              <DetailField label="حالة الدفع" value={order.paymentStatus} />
+              <DetailField label="طريقة الدفع" value={order.paymentMethod} />
+              {payments.length === 0 ? (
+                <p style={{ color: '#64748b' }}>لا توجد سجلات دفع منفصلة</p>
+              ) : (
+                payments.map((payment) => (
+                  <div key={payment.id} style={{ borderTop: '1px solid #e2e8f0', marginTop: '10px', paddingTop: '10px' }}>
+                    <DetailField label="الحالة" value={payment.status} />
+                    <DetailField label="المبلغ" value={money(payment.amount)} />
+                    <DetailField label="المزود" value={textOrEmpty(payment.provider)} />
+                    <DetailField label="المرجع" value={textOrEmpty(payment.providerReference)} />
+                  </div>
+                ))
+              )}
+            </section>
+
+            <section style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '12px' }}>
+              <h4 style={{ marginTop: 0 }}>الشحن</h4>
+              {shipments.length === 0 && !fallbackShipment ? (
+                <p style={{ color: '#64748b' }}>لا توجد بيانات شحن</p>
+              ) : (
+                <>
+                  {fallbackShipment && (
+                    <div>
+                      <DetailField label="شركة الشحن" value={textOrEmpty(fallbackShipment.carrierName)} />
+                      <DetailField label="رقم التتبع" value={textOrEmpty(fallbackShipment.trackingNumber)} />
+                      <DetailField label="الحالة" value={orderStatusText(fallbackShipment.status as OrderStatus)} />
+                    </div>
+                  )}
+                  {shipments.map((shipment) => (
+                    <div key={shipment.id} style={{ borderTop: '1px solid #e2e8f0', marginTop: '10px', paddingTop: '10px' }}>
+                      <DetailField label="شركة الشحن" value={shipment.carrierName} />
+                      <DetailField label="رقم التتبع" value={shipment.trackingNumber} />
+                      <DetailField label="حالة الشحنة" value={shipment.status} />
+                      <DetailField label="الوجهة" value={textOrEmpty(shipment.destination)} />
+                    </div>
+                  ))}
+                </>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ display: 'grid', gap: '3px', marginBottom: '8px' }}>
+      <span style={{ color: '#64748b', fontSize: '12px' }}>{label}</span>
+      <span style={{ color: '#0f172a', fontWeight: 600, overflowWrap: 'anywhere' }}>{value}</span>
     </div>
   );
 }

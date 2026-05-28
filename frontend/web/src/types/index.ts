@@ -126,7 +126,10 @@ export interface OrderItem {
   id: string;
   productId: string;
   productName: string;
-  unitPrice: number;
+  productThumbnail?: string;
+  vendorId?: string;
+  priceAtPurchase?: number;
+  unitPrice?: number;
   quantity: number;
   totalPrice: number;
 }
@@ -142,6 +145,62 @@ export interface OrderStatusHistory {
   createdAt: string;
 }
 
+export interface ShippingAddressSnapshot {
+  fullName?: string;
+  phone?: string;
+  fullAddress?: string;
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface PaymentSummary {
+  id: string;
+  orderId: string;
+  customerId: string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amount: number;
+  currency: string;
+  provider?: string;
+  providerReference?: string | null;
+  failureReason?: string | null;
+  authorizedAt?: string | null;
+  capturedAt?: string | null;
+  failedAt?: string | null;
+  refundedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShipmentEventSummary {
+  id: string;
+  shipmentId: string;
+  status: string;
+  location?: string | null;
+  message?: string | null;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export interface ShipmentSummary {
+  id: string;
+  orderId: string;
+  customerId: string;
+  carrierName: string;
+  trackingNumber: string;
+  status: string;
+  origin?: string | null;
+  destination?: string | null;
+  shippedAt?: string | null;
+  estimatedDeliveryAt?: string | null;
+  deliveredAt?: string | null;
+  events?: ShipmentEventSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
@@ -154,8 +213,19 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   notes?: string;
+  adminNotes?: string;
+  couponCode?: string;
+  shippingCarrier?: string | null;
+  trackingNumber?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+  refundedAt?: string | null;
+  shippingAddress?: ShippingAddressSnapshot;
   items?: OrderItem[];
   statusHistory?: OrderStatusHistory[];
+  payments?: PaymentSummary[];
+  shipments?: ShipmentSummary[];
   createdAt: string;
   updatedAt: string;
 }

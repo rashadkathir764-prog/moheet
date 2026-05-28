@@ -14,6 +14,8 @@ import { OrderItem } from './order-item.entity';
 import { OrderStatusHistory } from './order-status-history.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 import { PaymentMethod, PaymentStatus } from '../../common/enums/payment.enum';
+import { Payment } from '../../payments/entities/payment.entity';
+import { Shipment } from '../../shipments/entities/shipment.entity';
 
 /**
  * بنية عنوان الشحن — تُخزَّن كـ JSONB
@@ -69,6 +71,16 @@ export class Order {
     eager: false,
   })
   statusHistory: OrderStatusHistory[];
+
+  @OneToMany(() => Payment, (payment) => payment.order, {
+    eager: false,
+  })
+  payments: Payment[];
+
+  @OneToMany(() => Shipment, (shipment) => shipment.order, {
+    eager: false,
+  })
+  shipments: Shipment[];
 
   // ─── عنوان الشحن (JSONB Snapshot) ────────────────────────────────────────
 
