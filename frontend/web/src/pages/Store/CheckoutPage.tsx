@@ -181,6 +181,13 @@ export function CheckoutPage() {
       const latitude = parseCoordinate(coordinates?.lat, -90, 90);
       const longitude = parseCoordinate(coordinates?.lng, -180, 180);
 
+      // ── MVP gate ────────────────────────────────────────────────────────
+      // Online payments are not connected yet. The UI disables Bank Transfer
+      // and Credit Card, but we also lock the API payload here as a defence
+      // in depth so an inconsistent UI state can never submit a non-COD
+      // checkout to the backend.
+      const safePaymentMethod: PaymentMethod = 'CASH_ON_DELIVERY';
+
       const response = await ordersApi.checkout({
         shippingAddress: {
           fullName: contactInfo.name.trim(),
@@ -190,7 +197,7 @@ export function CheckoutPage() {
           latitude,
           longitude,
         },
-        paymentMethod,
+        paymentMethod: safePaymentMethod,
       });
 
       setMessage(`تم إنشاء الطلب بنجاح! رقم الطلب: ${response.id}`);
@@ -198,7 +205,7 @@ export function CheckoutPage() {
         orderId: response.id,
         metadata: {
           totalAmount: response.totalAmount,
-          paymentMethod,
+          paymentMethod: safePaymentMethod,
           itemCount: response.items?.length ?? 0,
         },
       });
@@ -313,18 +320,151 @@ export function CheckoutPage() {
           {step === 3 && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <h2 style={{ color: 'var(--color-text-primary)', fontSize: 18, marginBottom: '20px' }}>طريقة الدفع</h2>
+
+              {/* MVP banner: only Cash on Delivery is operational right now. */}
+              <div
+                role="status"
+                style={{
+                  background: '#FFF8E1',
+                  border: '1px solid #FFD54F',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  color: '#7B5B00',
+                  marginBottom: '16px',
+                  fontSize: '13px',
+                  lineHeight: 1.7,
+                }}
+              >
+                الدفع الإلكتروني غير متاح حاليًا، يمكنك استخدام الدفع عند الاستلام.
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '15px', border: `1px solid ${paymentMethod === 'CASH_ON_DELIVERY' ? 'var(--color-accent)' : 'var(--color-border)'}`, borderRadius: '4px', cursor: 'pointer' }}>
-                  <input type="radio" value="CASH_ON_DELIVERY" checked={paymentMethod === 'CASH_ON_DELIVERY'} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} />
-                  <span style={{ color: 'var(--color-text-primary)' }}>الدفع عند الاستلام</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '15px', border: `1px solid ${paymentMethod === 'BANK_TRANSFER' ? 'var(--color-accent)' : 'var(--color-border)'}`, borderRadius: '4px', cursor: 'pointer', background: '#FFF3EB' }}>
-                  <input type="radio" value="BANK_TRANSFER" checked={paymentMethod === 'BANK_TRANSFER'} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} />
-                  <div>
-                    <div style={{ color: 'var(--color-finance)', fontWeight: 'bold' }}>تحويل بنكي</div>
-                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>سيتم تأكيد الطلب بعد مراجعة التحويل من الإدارة.</div>
+                {/* Active option: Cash on Delivery */}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '15px',
+                    border: '1px solid var(--color-accent)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    background: '#FFFFFF',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value="CASH_ON_DELIVERY"
+                    checked={paymentMethod === 'CASH_ON_DELIVERY'}
+                    onChange={() => setPaymentMethod('CASH_ON_DELIVERY')}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>الدفع عند الاستلام</div>
+                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+                      ادفع نقدًا عند استلام الطلب من مندوب الشحن.
+                    </div>
                   </div>
+                  <span
+                    style={{
+                      background: '#DCFCE7',
+                      color: '#166534',
+                      borderRadius: '12px',
+                      padding: '2px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    متاح
+                  </span>
                 </label>
+
+                {/* Disabled option: Bank Transfer (coming soon) */}
+                <label
+                  aria-disabled="true"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '15px',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '4px',
+                    cursor: 'not-allowed',
+                    background: '#F8FAFC',
+                    opacity: 0.7,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value="BANK_TRANSFER"
+                    disabled
+                    checked={false}
+                    readOnly
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>تحويل بنكي</div>
+                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+                      سيتم تفعيله قريبًا بعد ربط مزود الدفع.
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      background: '#E2E8F0',
+                      color: '#475569',
+                      borderRadius: '12px',
+                      padding: '2px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    قريبًا
+                  </span>
+                </label>
+
+                {/* Disabled option: Credit Card (coming soon) */}
+                <label
+                  aria-disabled="true"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '15px',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '4px',
+                    cursor: 'not-allowed',
+                    background: '#F8FAFC',
+                    opacity: 0.7,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value="CREDIT_CARD"
+                    disabled
+                    checked={false}
+                    readOnly
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>بطاقة ائتمانية</div>
+                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+                      سيتم تفعيله قريبًا بعد ربط مزود الدفع.
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      background: '#E2E8F0',
+                      color: '#475569',
+                      borderRadius: '12px',
+                      padding: '2px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    قريبًا
+                  </span>
+                </label>
+
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <button onClick={prevStep} style={{ flex: 1, padding: '15px', borderRadius: '30px', border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-primary)', cursor: 'pointer' }}>العودة</button>
                   <button className="hero-cta-btn" onClick={checkout} style={{ flex: 2, background: 'var(--color-giving)' }}>تأكيد الطلب</button>
