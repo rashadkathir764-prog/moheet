@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Payment } from './entities/payment.entity';
@@ -32,7 +33,22 @@ export class PaymentsService {
     private readonly ordersRepository: Repository<Order>,
 
     private readonly dataSource: DataSource,
+
+    private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * ⛔ Safety gate — Payment simulation must never run in production.
+   * Used by simulate() to keep COD/dev/test paths working but block live env.
+   */
+  private assertSimulationAllowed(): void {
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (nodeEnv === 'production') {
+      throw new ForbiddenException(
+        'Payment simulation is disabled in production',
+      );
+    }
+  }
 
   async initiateForOrder(
     orderId: string,
@@ -114,6 +130,8 @@ export class PaymentsService {
   }
 
   async simulate(paymentId: string, dto: SimulatePaymentDto): Promise<Payment> {
+    this.assertSimulationAllowed();
+
     return this.dataSource.transaction(async (manager: EntityManager) => {
       if (![PaymentStatus.PAID, PaymentStatus.FAILED].includes(dto.status)) {
         throw new BadRequestException('المحاكي يدعم PAID أو FAILED فقط');
