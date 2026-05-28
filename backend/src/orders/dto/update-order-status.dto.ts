@@ -30,6 +30,15 @@ export class UpdateOrderStatusDto {
   adminNotes?: string;
 
   @ApiPropertyOptional({
+    example: 'Customer confirmed availability and order moved forward',
+    description: 'Optional status-history note',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+
+  @ApiPropertyOptional({
     example: 'DHL',
     description: 'اسم شركة الشحن عند نقل الطلب إلى SHIPPED',
   })

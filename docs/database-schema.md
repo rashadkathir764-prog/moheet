@@ -35,6 +35,7 @@ Sources of truth:
 | `carts` | `id`, `user_id`, `created_at`, `updated_at` | One cart per user. `user_id` is unique. Cart has many cart items. |
 | `cart_items` | `id`, `cart_id`, `product_id`, `quantity`, `created_at`, `updated_at` | Cart item belongs to cart and product. Unique pair: `cart_id` + `product_id`. |
 | `orders` | `id`, `customer_id`, `shipping_address`, `status`, `payment_method`, `payment_status`, `subtotal`, `shipping_fee`, `discount_amount`, `coupon_code`, `total_amount`, `notes`, `admin_notes`, `shipping_carrier`, `tracking_number`, `shipped_at`, `delivered_at`, `cancelled_at`, `refunded_at`, `created_at`, `updated_at` | Order belongs to customer user and has many order items. Shipping address is stored as JSON snapshot in `shipping_address`; there is no `address_id` column. |
+| `order_status_history` | `id`, `order_id`, `from_status`, `to_status`, `changed_by_user_id`, `changed_by_role`, `note`, `created_at` | Append-only audit trail for order lifecycle changes. `from_status` is nullable for the initial creation entry. `changed_by_user_id` is nullable for system changes. |
 | `order_items` | `id`, `order_id`, `product_id`, `product_name`, `product_thumbnail`, `vendor_id`, `price_at_purchase`, `quantity`, `total_price`, `created_at` | Order item belongs to order and product. `vendor_id` is stored as a vendor snapshot for vendor order queries. The item snapshots product name, thumbnail, purchase price, quantity, and line total. |
 | `payments` | `id`, `order_id`, `customer_id`, `method`, `status`, `amount`, `currency`, `provider`, `provider_reference`, `failure_reason`, `metadata`, `authorized_at`, `captured_at`, `failed_at`, `refunded_at`, `created_at`, `updated_at` | Payment belongs to order and customer. `provider_reference` is unique when present. Default currency is `YER`; default provider is `INTERNAL_SIMULATOR`. |
 | `shipments` | `id`, `order_id`, `customer_id`, `carrier_name`, `tracking_number`, `status`, `origin`, `destination`, `shipped_at`, `estimated_delivery_at`, `delivered_at`, `created_at`, `updated_at` | Shipment belongs to order and customer. One shipment per order. Shipment has many shipment events. `tracking_number` is unique when present. |
@@ -57,6 +58,8 @@ Sources of truth:
 - `product -> images`: `product_images.product_id` references `products.id`.
 - `product -> category`: `products.category_id` references `categories.id`.
 - `order -> order_items`: `order_items.order_id` references `orders.id`.
+- `order -> order_status_history`: `order_status_history.order_id` references
+  `orders.id` and records lifecycle status changes.
 - `order_item -> product`: `order_items.product_id` references `products.id`.
 - `order_item -> vendor`: `order_items.vendor_id` stores the vendor user ID snapshot
   used by vendor order queries.
@@ -82,6 +85,11 @@ Sources of truth:
 - `DELIVERED`
 - `CANCELLED`
 - `REFUNDED`
+
+Status changes are recorded in `order_status_history` when orders are created,
+cancelled, or moved through the admin status endpoint. The history captures the
+previous status, new status, actor user ID when available, actor role, optional
+note, and timestamp.
 
 ### Payment Method
 
@@ -172,7 +180,6 @@ currently range-bounded.
 These items are not implemented in the current entities or migrations and should
 not be treated as existing schema:
 
-- `order_status_history` table is not implemented.
 - `reserved_quantity` on `products` is not implemented.
 - `product_categories` many-to-many table is not implemented; products currently
   use a single `category_id`.
@@ -188,10 +195,14 @@ not be treated as existing schema:
 
 Current migration files define the implemented schema:
 
-- `InitialSchema1700000000000`
-- `AddVendorProfileAndAdminFields1710000000000`
-- `AddPaymentsAndShipments1720000000000`
-- `AddAddressesFavoritesReviewsCoupons1730000000000`
-- `AddUserEvents1740000000000`
+- `InitialSchema1779239600000`
+- `AddOrderFulfillmentFields1779243200000`
+- `CreatePayments1779246800000`
+- `CreateShipments1779250400000`
+- `CreateAddresses1779254000000`
+- `CreateCommerceExperienceModules1779257600000`
+- `CreateUserEventsAndProductSignals1779261200000`
+- `NormalizeLocalUploadUrls1779264800000`
+- `CreateOrderStatusHistory1779268400000`
 
 Update this document whenever entities or migrations change.

@@ -131,6 +131,17 @@ export interface OrderItem {
   totalPrice: number;
 }
 
+export interface OrderStatusHistory {
+  id: string;
+  orderId: string;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  changedByUserId?: string | null;
+  changedByRole?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
@@ -144,6 +155,7 @@ export interface Order {
   paymentStatus: PaymentStatus;
   notes?: string;
   items?: OrderItem[];
+  statusHistory?: OrderStatusHistory[];
   createdAt: string;
   updatedAt: string;
 }
@@ -152,6 +164,7 @@ export interface UpdateOrderStatusPayload {
   status: OrderStatus;
   paymentStatus?: PaymentStatus;
   adminNotes?: string;
+  note?: string;
   shippingCarrier?: string;
   trackingNumber?: string;
 }

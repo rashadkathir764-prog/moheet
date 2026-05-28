@@ -9,6 +9,7 @@ import { Cart } from '../carts/entities/cart.entity';
 import { CartItem } from '../carts/entities/cart-item.entity';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { OrderStatusHistory } from '../orders/entities/order-status-history.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { Shipment } from '../shipments/entities/shipment.entity';
 import { ShipmentEvent } from '../shipments/entities/shipment-event.entity';
@@ -28,6 +29,7 @@ import { CreateAddresses1779254000000 } from '../migrations/1779254000000-Create
 import { CreateCommerceExperienceModules1779257600000 } from '../migrations/1779257600000-CreateCommerceExperienceModules';
 import { CreateUserEventsAndProductSignals1779261200000 } from '../migrations/1779261200000-CreateUserEventsAndProductSignals';
 import { NormalizeLocalUploadUrls1779264800000 } from '../migrations/1779264800000-NormalizeLocalUploadUrls';
+import { CreateOrderStatusHistory1779268400000 } from '../migrations/1779268400000-CreateOrderStatusHistory';
 
 loadEnv({ path: '.env' });
 loadEnv({ path: '../.env' });
@@ -54,6 +56,7 @@ export default new DataSource({
     CartItem,
     Order,
     OrderItem,
+    OrderStatusHistory,
     Payment,
     Shipment,
     ShipmentEvent,
@@ -75,6 +78,7 @@ export default new DataSource({
     CreateCommerceExperienceModules1779257600000,
     CreateUserEventsAndProductSignals1779261200000,
     NormalizeLocalUploadUrls1779264800000,
+    CreateOrderStatusHistory1779268400000,
   ],
   synchronize: false,
   migrationsRun: false,

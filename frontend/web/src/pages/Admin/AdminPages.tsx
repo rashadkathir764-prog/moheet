@@ -84,12 +84,14 @@ interface OrderStatusDraft {
   status: OrderStatus | '';
   shippingCarrier: string;
   trackingNumber: string;
+  note: string;
 }
 
 const emptyOrderStatusDraft = (): OrderStatusDraft => ({
   status: '',
   shippingCarrier: '',
   trackingNumber: '',
+  note: '',
 });
 
 export function AdminDashboard() {
@@ -447,6 +449,7 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
 
     const payload: UpdateOrderStatusPayload = {
       status: draft.status,
+      ...(draft.note.trim() && { note: draft.note.trim() }),
       ...(draft.status === 'SHIPPED' && {
         shippingCarrier: draft.shippingCarrier.trim(),
         trackingNumber: draft.trackingNumber.trim(),
@@ -505,6 +508,7 @@ function OrdersTable({ title, orders }: { title: string; orders: Order[] }) {
                         onSubmit={() => handleStatusUpdate(order)}
                       />
                     )}
+                    {canManageStatus && <OrderStatusHistoryPreview order={order} />}
                   </td>
                   <td style={{ fontWeight: 'bold', color: '#B12704' }}>{money(order.totalAmount)}</td>
                   <td>{order.paymentStatus}</td>
@@ -578,6 +582,14 @@ function OrderStatusManager({
         </>
       )}
 
+      <input
+        value={draft.note}
+        onChange={(event) => onDraftChange({ note: event.target.value })}
+        placeholder="ملاحظة اختيارية"
+        disabled={updating}
+        style={{ minHeight: '32px' }}
+      />
+
       <button
         type="button"
         onClick={onSubmit}
@@ -593,6 +605,24 @@ function OrderStatusManager({
       >
         {updating ? 'جارٍ التحديث...' : 'تحديث الحالة'}
       </button>
+    </div>
+  );
+}
+
+function OrderStatusHistoryPreview({ order }: { order: Order }) {
+  const history = order.statusHistory ?? [];
+
+  if (history.length === 0) return null;
+
+  const latest = history[history.length - 1];
+
+  return (
+    <div style={{ marginTop: '8px', color: '#475569', fontSize: '12px', lineHeight: 1.5 }}>
+      <div>
+        آخر تغيير: {orderStatusLabels[latest.fromStatus ?? 'PENDING']} -&gt; {orderStatusLabels[latest.toStatus]}
+      </div>
+      <div>بواسطة: {latest.changedByRole ?? 'SYSTEM'}</div>
+      {latest.note && <div>ملاحظة: {latest.note}</div>}
     </div>
   );
 }

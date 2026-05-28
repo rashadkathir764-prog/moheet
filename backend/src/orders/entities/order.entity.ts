@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { OrderItem } from './order-item.entity';
+import { OrderStatusHistory } from './order-status-history.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 import { PaymentMethod, PaymentStatus } from '../../common/enums/payment.enum';
 
@@ -63,6 +64,11 @@ export class Order {
     eager: false,
   })
   items: OrderItem[];
+
+  @OneToMany(() => OrderStatusHistory, (history) => history.order, {
+    eager: false,
+  })
+  statusHistory: OrderStatusHistory[];
 
   // ─── عنوان الشحن (JSONB Snapshot) ────────────────────────────────────────
 

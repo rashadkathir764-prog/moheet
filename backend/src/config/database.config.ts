@@ -6,6 +6,7 @@ import { Product } from '../products/entities/product.entity';
 import { ProductImage } from '../products/entities/product-image.entity';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { OrderStatusHistory } from '../orders/entities/order-status-history.entity';
 import { Cart } from '../carts/entities/cart.entity';
 import { CartItem } from '../carts/entities/cart-item.entity';
 import { Payment } from '../payments/entities/payment.entity';
@@ -27,6 +28,7 @@ import { CreateAddresses1779254000000 } from '../migrations/1779254000000-Create
 import { CreateCommerceExperienceModules1779257600000 } from '../migrations/1779257600000-CreateCommerceExperienceModules';
 import { CreateUserEventsAndProductSignals1779261200000 } from '../migrations/1779261200000-CreateUserEventsAndProductSignals';
 import { NormalizeLocalUploadUrls1779264800000 } from '../migrations/1779264800000-NormalizeLocalUploadUrls';
+import { CreateOrderStatusHistory1779268400000 } from '../migrations/1779268400000-CreateOrderStatusHistory';
 
 const parseBoolean = (
   value: string | boolean | undefined,
@@ -62,6 +64,7 @@ export const databaseConfig: TypeOrmModuleAsyncOptions = {
       CartItem,
       Order,
       OrderItem,
+      OrderStatusHistory,
       Payment,
       Shipment,
       ShipmentEvent,
@@ -83,6 +86,7 @@ export const databaseConfig: TypeOrmModuleAsyncOptions = {
       CreateCommerceExperienceModules1779257600000,
       CreateUserEventsAndProductSignals1779261200000,
       NormalizeLocalUploadUrls1779264800000,
+      CreateOrderStatusHistory1779268400000,
     ],
 
     // true في التطوير فقط — يزامن الـ Schema تلقائياً

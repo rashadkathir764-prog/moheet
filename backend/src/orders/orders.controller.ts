@@ -166,8 +166,9 @@ export class OrdersController {
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderStatusDto,
+    @CurrentUser() user: User,
   ) {
-    const order = await this.ordersService.updateStatus(id, dto);
+    const order = await this.ordersService.updateStatus(id, dto, user);
     return {
       success: true,
       message: `تم تحديث حالة الطلب إلى "${dto.status}" بنجاح`,

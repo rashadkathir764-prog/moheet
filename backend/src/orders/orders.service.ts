@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { Product } from '../products/entities/product.entity';
 import { Cart } from '../carts/entities/cart.entity';
 import { CartItem } from '../carts/entities/cart-item.entity';
@@ -32,6 +33,15 @@ import { NotificationType } from '../notifications/entities/notification.entity'
 
 // ─── ثابت رسوم الشحن (مبسَّط للـ MVP — يُحسَّن لاحقاً) ────────────────────
 const FLAT_SHIPPING_FEE = 0; // مجاني في المرحلة الأولى
+
+interface StatusHistoryInput {
+  orderId: string;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  changedByUserId?: string | null;
+  changedByRole?: string | null;
+  note?: string | null;
+}
 
 @Injectable()
 export class OrdersService {
@@ -121,6 +131,14 @@ export class OrdersService {
       });
 
       const savedOrder = await manager.save(Order, order);
+      await this.recordOrderStatusHistory(manager, {
+        orderId: savedOrder.id,
+        fromStatus: null,
+        toStatus: OrderStatus.PENDING,
+        changedByUserId: customer.id,
+        changedByRole: customer.role,
+        note: 'Order created',
+      });
 
       // ── الخطوة 5: إنشاء عناصر الطلب مع اللقطات ──────────────────────────
       const orderItems = lockedProducts.map(({ product, requestedQty }) =>
@@ -235,6 +253,14 @@ export class OrdersService {
       });
 
       const savedOrder = await manager.save(Order, order);
+      await this.recordOrderStatusHistory(manager, {
+        orderId: savedOrder.id,
+        fromStatus: null,
+        toStatus: OrderStatus.PENDING,
+        changedByUserId: customer.id,
+        changedByRole: customer.role,
+        note: 'Order created',
+      });
       if (couponResult) {
         await this.couponsService.redeem(
           couponResult.coupon,
@@ -275,7 +301,7 @@ export class OrdersService {
 
       const createdOrder = await manager.findOne(Order, {
         where: { id: savedOrder.id },
-        relations: ['customer', 'items', 'items.product'],
+        relations: ['customer', 'items', 'items.product', 'statusHistory'],
       });
 
       if (!createdOrder) {
@@ -284,7 +310,7 @@ export class OrdersService {
         );
       }
 
-      return createdOrder;
+      return this.sortStatusHistory(createdOrder);
     });
   }
 
@@ -394,7 +420,7 @@ export class OrdersService {
   async findOne(id: string, requestingUser: User): Promise<Order> {
     const order = await this.ordersRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product', 'statusHistory'],
     });
 
     if (!order) {
@@ -410,7 +436,7 @@ export class OrdersService {
       throw new ForbiddenException('ليس لديك صلاحية لعرض هذا الطلب');
     }
 
-    return order;
+    return this.sortStatusHistory(order);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -460,6 +486,7 @@ export class OrdersService {
   async updateStatus(
     id: string,
     dto: UpdateOrderStatusDto,
+    changedByUser?: User | null,
   ): Promise<Order> {
     await this.dataSource.transaction(async (manager: EntityManager) => {
       const order = await manager.findOne(Order, {
@@ -515,6 +542,14 @@ export class OrdersService {
       }
 
       await manager.update(Order, id, updatePayload);
+      await this.recordOrderStatusHistory(manager, {
+        orderId: id,
+        fromStatus: order.status,
+        toStatus: dto.status,
+        changedByUserId: changedByUser?.id ?? null,
+        changedByRole: changedByUser?.role ?? 'SYSTEM',
+        note: dto.note ?? dto.adminNotes ?? null,
+      });
 
       await this.notificationsService.createForUser(
         {
@@ -530,14 +565,14 @@ export class OrdersService {
 
     const updatedOrder = await this.ordersRepository.findOne({
       where: { id },
-      relations: ['customer', 'items'],
+      relations: ['customer', 'items', 'statusHistory'],
     });
 
     if (!updatedOrder) {
       throw new NotFoundException(`الطلب بالمعرف ${id} غير موجود`);
     }
 
-    return updatedOrder;
+    return this.sortStatusHistory(updatedOrder);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -582,6 +617,14 @@ export class OrdersService {
         status: OrderStatus.CANCELLED,
         cancelledAt: new Date(),
       });
+      await this.recordOrderStatusHistory(manager, {
+        orderId: id,
+        fromStatus: order.status,
+        toStatus: OrderStatus.CANCELLED,
+        changedByUserId: requestingUser.id,
+        changedByRole: requestingUser.role,
+        note: null,
+      });
 
       await this.notificationsService.createForUser(
         {
@@ -597,14 +640,40 @@ export class OrdersService {
 
     const cancelledOrder = await this.ordersRepository.findOne({
       where: { id },
-      relations: ['customer', 'items'],
+      relations: ['customer', 'items', 'statusHistory'],
     });
 
     if (!cancelledOrder) {
       throw new NotFoundException(`الطلب بالمعرف ${id} غير موجود`);
     }
 
-    return cancelledOrder;
+    return this.sortStatusHistory(cancelledOrder);
+  }
+
+  private async recordOrderStatusHistory(
+    manager: EntityManager,
+    input: StatusHistoryInput,
+  ): Promise<void> {
+    const history = manager.create(OrderStatusHistory, {
+      orderId: input.orderId,
+      fromStatus: input.fromStatus,
+      toStatus: input.toStatus,
+      changedByUserId: input.changedByUserId ?? null,
+      changedByRole: input.changedByRole ?? null,
+      note: input.note ?? null,
+    });
+
+    await manager.save(OrderStatusHistory, history);
+  }
+
+  private sortStatusHistory(order: Order): Order {
+    if (!order.statusHistory) return order;
+
+    order.statusHistory = [...order.statusHistory].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+
+    return order;
   }
 
   private getOrderStatusTimestamps(status: OrderStatus): Partial<Order> {
