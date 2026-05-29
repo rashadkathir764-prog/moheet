@@ -8,11 +8,14 @@ import { categoriesApi } from '../../api/categories.api';
 import { commerceApi } from '../../api/commerce.api';
 import type { Category, CreateProductPayload, Product } from '../../types';
 import { PageTransition } from '../../components/Layout/PageTransition';
+import { AppDialog, type AppDialogProps } from '../../components/ui/AppDialog';
 import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, MapPin } from 'lucide-react';
 import { featureFlags } from '../../config/features';
 import { extractApiError, resolveImageUrl } from '../../utils/extractApiError';
 import './VendorPages.css';
+
+type DialogState = Omit<AppDialogProps, 'isOpen'>;
 
 // Store and Admin components moved to their respective files
 
@@ -31,6 +34,8 @@ export function VendorDashboard() {
   const [message, setMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const closeDialog = () => setDialog(null);
 
   const location = useLocation();
   const currentPath = location.pathname;
@@ -259,16 +264,26 @@ export function VendorDashboard() {
     }
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذا المنتج؟')) return;
-    try {
-      await productsApi.softDelete(id);
-      setMessage('تم حذف المنتج بنجاح');
-      load();
-    } catch (err: unknown) {
-      const errMsg = extractApiError(err);
-      setMessage(`خطأ: ${errMsg}`);
-    }
+  const handleDeleteProduct = (id: string) => {
+    setDialog({
+      title: 'تأكيد الحذف',
+      message: 'هل أنت متأكد من رغبتك في حذف هذا المنتج؟',
+      variant: 'danger',
+      confirmText: 'حذف',
+      cancelText: 'إلغاء',
+      onCancel: closeDialog,
+      onConfirm: async () => {
+        closeDialog();
+        try {
+          await productsApi.softDelete(id);
+          setMessage('تم حذف المنتج بنجاح');
+          load();
+        } catch (err: unknown) {
+          const errMsg = extractApiError(err);
+          setMessage(`خطأ: ${errMsg}`);
+        }
+      },
+    });
   };
 
   return (

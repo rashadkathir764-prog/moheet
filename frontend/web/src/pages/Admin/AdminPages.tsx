@@ -22,8 +22,11 @@ import type {
   User,
 } from '../../types';
 import { PageTransition } from '../../components/Layout/PageTransition';
+import { AppDialog, type AppDialogProps } from '../../components/ui/AppDialog';
 import { extractApiError } from '../../utils/extractApiError';
 import './AdminPages.css';
+
+type DialogState = Omit<AppDialogProps, 'isOpen'>;
 
 const money = (value?: number) => `${Number(value ?? 0).toFixed(2)} ر.ي`;
 
@@ -123,6 +126,8 @@ export function AdminDashboard() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
   const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRange>('7d');
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const closeDialog = () => setDialog(null);
 
   const location = useLocation();
   const currentPath = location.pathname;
@@ -140,15 +145,30 @@ export function AdminDashboard() {
     usersApi.getAll().then(setUsers).catch(() => setUsers([]));
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذا المنتج؟')) return;
-    try {
-      await productsApi.softDelete(id);
-      // Reload products list
-      productsApi.getAll({ limit: 100 }).then((res) => setProducts(res.data || []));
-    } catch (err: unknown) {
-      alert('فشل الحذف: ' + extractApiError(err));
-    }
+  const handleDeleteProduct = (id: string) => {
+    setDialog({
+      title: 'تأكيد الحذف',
+      message: 'هل أنت متأكد من رغبتك في حذف هذا المنتج؟',
+      variant: 'danger',
+      confirmText: 'حذف',
+      cancelText: 'إلغاء',
+      onCancel: closeDialog,
+      onConfirm: async () => {
+        closeDialog();
+        try {
+          await productsApi.softDelete(id);
+          // Reload products list
+          productsApi.getAll({ limit: 100 }).then((res) => setProducts(res.data || []));
+        } catch (err: unknown) {
+          setDialog({
+            title: 'فشل الحذف',
+            message: extractApiError(err),
+            confirmText: 'حسناً',
+            onConfirm: closeDialog,
+          });
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -423,6 +443,16 @@ export function AdminDashboard() {
         </section>
       )}
     </div>
+    <AppDialog
+      isOpen={dialog !== null}
+      title={dialog?.title}
+      message={dialog?.message}
+      variant={dialog?.variant}
+      confirmText={dialog?.confirmText}
+      cancelText={dialog?.cancelText}
+      onConfirm={dialog?.onConfirm}
+      onCancel={dialog?.onCancel}
+    />
     </PageTransition>
   );
 }
