@@ -522,6 +522,16 @@ export function VendorDashboard() {
         </div>
       )}
     </div>
+    <AppDialog
+      isOpen={dialog !== null}
+      title={dialog?.title}
+      message={dialog?.message}
+      variant={dialog?.variant}
+      confirmText={dialog?.confirmText}
+      cancelText={dialog?.cancelText}
+      onConfirm={dialog?.onConfirm}
+      onCancel={dialog?.onCancel}
+    />
     </PageTransition>
   );
 }

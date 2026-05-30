@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Lock, Mail, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { authApi } from '../../api/auth.api';
@@ -34,7 +34,7 @@ const returnToFromState = (state: unknown) => {
   return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`;
 };
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -45,7 +45,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,

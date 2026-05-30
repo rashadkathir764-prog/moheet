@@ -4,11 +4,14 @@ import { motion } from 'framer-motion';
 import { commerceApi } from '../../api/commerce.api';
 import { trackingApi } from '../../api/tracking.api';
 import { PageTransition } from '../../components/Layout/PageTransition';
+import { AppDialog, type AppDialogProps } from '../../components/ui/AppDialog';
 import { extractApiError, logError, resolveImageUrl } from '../../utils/extractApiError';
 import type { Product } from '../../types';
 import { GiftModePanel } from './AdvancedFeatures';
 import { CartSkeleton } from '../../components/Skeleton/Skeleton';
 import './StorePages.css';
+
+type DialogState = Omit<AppDialogProps, 'isOpen'>;
 
 const money = (value?: number) => `${Number(value ?? 0).toFixed(2)} ر.ي`;
 
@@ -27,6 +30,8 @@ export function CartPage() {
   const [loading, setLoading] = useState(true);
   const [giftOpen, setGiftOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const closeDialog = () => setDialog(null);
   const navigate = useNavigate();
 
   const load = () =>
@@ -69,18 +74,28 @@ export function CartPage() {
     }
   };
 
-  const clearCart = async () => {
-    if (!window.confirm('هل تريد تفريغ السلة بالكامل؟')) return;
-    try {
-      await commerceApi.cart.clear();
-      trackingApi.track('clear_cart', {
-        metadata: { itemCount: items.length },
-      });
-      await load();
-    } catch (error) {
-      logError('CartPage.clear', error);
-      setMessage(extractApiError(error));
-    }
+  const clearCart = () => {
+    setDialog({
+      title: 'تفريغ السلة',
+      message: 'هل تريد تفريغ السلة بالكامل؟',
+      variant: 'danger',
+      confirmText: 'تفريغ',
+      cancelText: 'إلغاء',
+      onCancel: closeDialog,
+      onConfirm: async () => {
+        closeDialog();
+        try {
+          await commerceApi.cart.clear();
+          trackingApi.track('clear_cart', {
+            metadata: { itemCount: items.length },
+          });
+          await load();
+        } catch (error) {
+          logError('CartPage.clear', error);
+          setMessage(extractApiError(error));
+        }
+      },
+    });
   };
 
   const updateQuantity = async (item: CartItem, quantity: number) => {
@@ -216,6 +231,16 @@ export function CartPage() {
         </div>
       </div>
       <GiftModePanel isOpen={giftOpen} onClose={() => setGiftOpen(false)} />
+      <AppDialog
+        isOpen={dialog !== null}
+        title={dialog?.title}
+        message={dialog?.message}
+        variant={dialog?.variant}
+        confirmText={dialog?.confirmText}
+        cancelText={dialog?.cancelText}
+        onConfirm={dialog?.onConfirm}
+        onCancel={dialog?.onCancel}
+      />
     </PageTransition>
   );
 }

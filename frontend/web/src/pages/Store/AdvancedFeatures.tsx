@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, MapPin, Camera, Gift, Bell, X, ChevronRight, Upload, CheckCircle2, CreditCard } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
+import { AppDialog } from '../../components/ui/AppDialog';
+
+interface InfoDialogState {
+  title?: string;
+  message: string;
+}
 
 // ─── 1. محفظة محيط الرقمية ───────────────────────────────────────────────────
 
@@ -10,6 +16,7 @@ export const MoheetWallet: React.FC<{ isOpen: boolean; onClose: () => void }> = 
   const [balance] = useState(1240.50);
   const [tab, setTab] = useState<'overview' | 'topup' | 'history'>('overview');
   const [topupAmount, setTopupAmount] = useState('');
+  const [info, setInfo] = useState<InfoDialogState | null>(null);
 
   const transactions = [
     { id: '1', label: 'شراء منتج — لابتوب', amount: -850, date: '2026-05-20' },
@@ -88,7 +95,7 @@ export const MoheetWallet: React.FC<{ isOpen: boolean; onClose: () => void }> = 
                       </div>
                     </div>
                   </div>
-                  <button className="wallet-action-btn" onClick={() => alert('تم تفعيل خيار الدفع بالمحفظة للطلب القادم!')}>
+                  <button className="wallet-action-btn" onClick={() => setInfo({ title: 'المحفظة', message: 'تم تفعيل خيار الدفع بالمحفظة للطلب القادم!' })}>
                     استخدم المحفظة في دفعتك القادمة
                   </button>
                 </motion.div>
@@ -109,7 +116,7 @@ export const MoheetWallet: React.FC<{ isOpen: boolean; onClose: () => void }> = 
                     onChange={(e) => setTopupAmount(e.target.value)}
                     className="topup-input"
                   />
-                  <button className="wallet-action-btn" onClick={() => { if(topupAmount) { alert(`تم شحن ${Number(topupAmount).toLocaleString()} ر.ي بنجاح!`); setTopupAmount(''); } else { alert('يرجى تحديد المبلغ أولاً'); } }}>
+                  <button className="wallet-action-btn" onClick={() => { if(topupAmount) { setInfo({ title: 'شحن الرصيد', message: `تم شحن ${Number(topupAmount).toLocaleString()} ر.ي بنجاح!` }); setTopupAmount(''); } else { setInfo({ title: 'تنبيه', message: 'يرجى تحديد المبلغ أولاً' }); } }}>
                     شحن {topupAmount ? `${Number(topupAmount).toLocaleString()} ر.ي` : 'الرصيد'} الآن
                   </button>
                 </motion.div>
@@ -133,6 +140,13 @@ export const MoheetWallet: React.FC<{ isOpen: boolean; onClose: () => void }> = 
           </motion.div>
         </motion.div>
       )}
+      <AppDialog
+        isOpen={info !== null}
+        title={info?.title}
+        message={info?.message}
+        confirmText="حسناً"
+        onConfirm={() => setInfo(null)}
+      />
     </AnimatePresence>
   );
 };

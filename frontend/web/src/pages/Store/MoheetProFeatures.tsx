@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { ordersApi } from '../../api/orders.api';
 import type { Order } from '../../types';
+import { AppDialog } from '../../components/ui/AppDialog';
 
 // ─── Countdown Hook ───────────────────────────────────────────────────────────
 function useCountdown(endTime: Date) {
@@ -298,6 +299,7 @@ const mysteryBoxes = [
 export const MysteryBoxWidget: React.FC = () => {
   const [openingBox, setOpeningBox] = useState<string | null>(null);
   const [revealedPrize, setRevealedPrize] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const prizes = ['سماعة JBL اللاسلكية 🎧', 'شاحن لاسلكي سريع ⚡', 'ساعة ذكية Amazfit 🕒', 'حقيبة لابتوب فاخرة 💼', 'قلم Apple Pencil ✏️'];
 
@@ -386,7 +388,7 @@ export const MysteryBoxWidget: React.FC = () => {
                   <div style={{ fontSize: '26px', color: 'var(--color-text-primary)', fontWeight: '800', marginBottom: '20px', padding: '20px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid rgba(0,242,255,0.3)' }}>
                     {revealedPrize}
                   </div>
-                  <button onClick={() => { reset(); alert('تمت إضافة المنتج إلى السلة بنجاح!'); }} style={{ background: 'var(--color-accent)', color: '#000', border: 'none', borderRadius: '12px', padding: '12px 30px', fontWeight: '700', fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button onClick={() => { reset(); setInfo('تمت إضافة المنتج إلى السلة بنجاح!'); }} style={{ background: 'var(--color-accent)', color: '#000', border: 'none', borderRadius: '12px', padding: '12px 30px', fontWeight: '700', fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}>
                     رائع! إضافة للسلة
                   </button>
                 </motion.div>
@@ -395,6 +397,13 @@ export const MysteryBoxWidget: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      <AppDialog
+        isOpen={info !== null}
+        title="صندوق الحظ"
+        message={info ?? ''}
+        confirmText="حسناً"
+        onConfirm={() => setInfo(null)}
+      />
     </div>
   );
 };
@@ -515,6 +524,7 @@ export const DigitalWarrantyVault: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [now] = useState(() => Date.now());
+  const [info, setInfo] = useState<string | null>(null);
 
   const statusConfig = {
     active: { color: '#22c55e', label: 'ضمان سارٍ', bg: 'rgba(34,197,94,0.1)' },
@@ -667,7 +677,7 @@ export const DigitalWarrantyVault: React.FC = () => {
                 <button onClick={() => setSelected(null)} style={{ flex: 1, background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--color-text-primary)', padding: '12px', borderRadius: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
                   إغلاق
                 </button>
-                <button onClick={() => alert('جاري تحميل الفاتورة PDF...')} style={{ flex: 2, background: 'var(--color-giving)', color: '#000', border: 'none', padding: '12px', borderRadius: '12px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <button onClick={() => setInfo('جاري تحميل الفاتورة PDF...')} style={{ flex: 2, background: 'var(--color-giving)', color: '#000', border: 'none', padding: '12px', borderRadius: '12px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                   <Download size={16} /> تحميل الفاتورة
                 </button>
               </div>
@@ -675,6 +685,13 @@ export const DigitalWarrantyVault: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      <AppDialog
+        isOpen={info !== null}
+        title="الضمان الرقمي"
+        message={info ?? ''}
+        confirmText="حسناً"
+        onConfirm={() => setInfo(null)}
+      />
     </div>
   );
 };

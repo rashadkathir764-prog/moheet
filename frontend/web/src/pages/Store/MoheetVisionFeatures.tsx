@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Vote, Lightbulb, HeartHandshake, PhoneCall, 
+import {
+  Vote, Lightbulb, HeartHandshake, PhoneCall,
   CheckCircle2, X, Send
 } from 'lucide-react';
+import { AppDialog } from '../../components/ui/AppDialog';
 
 // ─── 1. التصويت الشعبي (Popular Vote) ────────────────────────────────────────
 
@@ -176,6 +177,7 @@ const localProjects: InnovationProject[] = [
 ];
 
 export const OpenInnovationWidget: React.FC = () => {
+  const [info, setInfo] = useState<string | null>(null);
   return (
     <div className="vision-widget-container" style={{ maxWidth: '1400px', margin: '0 auto 50px', padding: '0 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
@@ -215,7 +217,7 @@ export const OpenInnovationWidget: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => alert('شكراً لدعمك الابتكار المحلي! سيتم إشعارك حين إطلاق المنتج.')} style={{ flex: 1, background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', color: '#fbbf24', padding: '10px', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 'bold' }}>
+                <button onClick={() => setInfo('شكراً لدعمك الابتكار المحلي! سيتم إشعارك حين إطلاق المنتج.')} style={{ flex: 1, background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', color: '#fbbf24', padding: '10px', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 'bold' }}>
                   ادعم الآن (طلب مسبق)
                 </button>
                 <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '10px', color: '#94a3b8', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '80px' }}>
@@ -226,6 +228,13 @@ export const OpenInnovationWidget: React.FC = () => {
           );
         })}
       </div>
+      <AppDialog
+        isOpen={info !== null}
+        title="الابتكار المفتوح"
+        message={info ?? ''}
+        confirmText="حسناً"
+        onConfirm={() => setInfo(null)}
+      />
     </div>
   );
 };
