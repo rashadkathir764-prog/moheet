@@ -106,6 +106,10 @@ export const Register: React.FC = () => {
       return 'كلمة المرور مطلوبة';
     }
 
+    if (password.length < 6) {
+      return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+    }
+
     if (password !== confirmPassword) {
       return 'تأكيد كلمة المرور غير مطابق';
     }

@@ -9,8 +9,8 @@ export class LoginDto {
   @IsEmail({}, { message: 'البريد الإلكتروني غير صحيح' })
   email: string;
 
-  @ApiProperty({ example: 'StrongPass@123' })
+  @ApiProperty({ example: 'rashad' })
   @IsString()
-  @MinLength(8, { message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' })
+  @MinLength(6, { message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' })
   password: string;
 }
