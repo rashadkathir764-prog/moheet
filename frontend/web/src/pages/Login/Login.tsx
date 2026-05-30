@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Lock, Mail, Loader2 } from 'lucide-react';
+import { ArrowRight, Lock, Mail, Loader2, ShoppingBag, UserPlus } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { authApi } from '../../api/auth.api';
 import { getLoginDestination } from '../../auth/login-routing';
@@ -39,21 +39,19 @@ const containerVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
     },
   },
 };
 
 const itemVariants: Variants = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { y: 14, opacity: 0 },
   visible: {
     y: 0,
     opacity: 1,
     transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 24,
+      duration: 0.25,
     },
   },
 };
@@ -63,11 +61,37 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const login = useAuthStore((state) => state.login);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const previousHtmlDir = document.documentElement.getAttribute('dir');
+    const previousBodyDir = document.body.getAttribute('dir');
+
+    document.documentElement.setAttribute('dir', 'ltr');
+    document.body.setAttribute('dir', 'ltr');
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ left: 0, top: 0 });
+      document.scrollingElement?.scrollTo({ left: 0, top: 0 });
+    });
+
+    return () => {
+      if (previousHtmlDir) {
+        document.documentElement.setAttribute('dir', previousHtmlDir);
+      } else {
+        document.documentElement.removeAttribute('dir');
+      }
+
+      if (previousBodyDir) {
+        document.body.setAttribute('dir', previousBodyDir);
+      } else {
+        document.body.removeAttribute('dir');
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,89 +114,130 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="animated-bg"></div>
-      <div className="glow-orb" style={{ top: '10%', left: '10%' }}></div>
-      <div className="glow-orb"></div>
-      
-      <motion.div 
-        className="login-card"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', duration: 0.8, bounce: 0.4 }}
+    <main className="login-page">
+      <motion.div
+        className="login-shell"
+        initial={{ y: 18, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
       >
-        <motion.div 
-          className="login-logo"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <motion.div className="logo-icon" variants={itemVariants} whileHover={{ rotate: 10, scale: 1.1 }}>
-            M
-          </motion.div>
-          <motion.div variants={itemVariants} style={{ textAlign: 'center' }}>
-            <h2>مُحِيط</h2>
-            <p>أدخل بياناتك للمتابعة إلى مساحتك</p>
-          </motion.div>
-        </motion.div>
+        <section className="login-brand-panel" aria-label="محيط">
+          <Link to="/store" className="login-back-link">
+            <ArrowRight size={18} />
+            العودة إلى المتجر
+          </Link>
 
-        <motion.form 
-          onSubmit={handleSubmit} 
+          <div className="login-brand-content">
+            <div className="login-brand-mark" aria-hidden="true">
+              <ShoppingBag size={30} />
+            </div>
+            <p className="login-brand-eyebrow">متجر إلكتروني</p>
+            <h1>محيط</h1>
+            <p>
+              كل ما تحتاجه في تجربة تسوق عربية واضحة، من المنتجات إلى الطلبات والمتابعة.
+            </p>
+          </div>
+        </section>
+
+        <motion.section
+          className="login-card"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
+          aria-labelledby="login-title"
         >
-          <AnimatePresence>
-            {error && (
-              <motion.div 
-                className="login-error"
-                initial={{ opacity: 0, y: -10, height: 0 }}
-                animate={{ opacity: 1, y: 0, height: 'auto' }}
-                exit={{ opacity: 0, y: -10, height: 0 }}
-              >
-                {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          <motion.div className="input-group" variants={itemVariants}>
-            <Mail className="input-icon" size={20} />
-            <input
-              className="input-field"
-              type="email"
-              placeholder="البريد الإلكتروني"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              dir="ltr"
-            />
+          <motion.div className="login-card-header" variants={itemVariants}>
+            <span className="login-store-name">محيط</span>
+            <h2 id="login-title">تسجيل الدخول</h2>
+            <p>سجّل دخولك للوصول إلى حسابك ومتابعة طلباتك</p>
           </motion.div>
-          
-          <motion.div className="input-group" variants={itemVariants}>
-            <Lock className="input-icon" size={20} />
-            <input
-              className="input-field"
-              type="password"
-              placeholder="كلمة المرور"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              dir="ltr"
-            />
-          </motion.div>
-          
-          <motion.button 
-            type="submit" 
-            className="submit-btn" 
-            variants={itemVariants}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            disabled={isLoading}
+
+          <motion.form
+            className="login-form"
+            onSubmit={handleSubmit}
+            variants={containerVariants}
           >
-            {isLoading ? <Loader2 className="animate-spin mx-auto" size={24} /> : 'دخول'}
-          </motion.button>
-        </motion.form>
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  className="login-error"
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                >
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <motion.div className="login-field" variants={itemVariants}>
+              <label htmlFor="login-email">البريد الإلكتروني</label>
+              <div className="login-input-wrap">
+                <Mail className="login-input-icon" size={19} />
+                <input
+                  id="login-email"
+                  className="login-input"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  dir="ltr"
+                />
+              </div>
+            </motion.div>
+
+            <motion.div className="login-field" variants={itemVariants}>
+              <label htmlFor="login-password">كلمة المرور</label>
+              <div className="login-input-wrap">
+                <Lock className="login-input-icon" size={19} />
+                <input
+                  id="login-password"
+                  className="login-input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  dir="ltr"
+                />
+              </div>
+            </motion.div>
+
+            <motion.button
+              type="submit"
+              className="login-submit-btn"
+              variants={itemVariants}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="login-spinner" size={22} />
+                  جار تسجيل الدخول
+                </>
+              ) : (
+                'دخول'
+              )}
+            </motion.button>
+
+            <motion.div className="login-register-row" variants={itemVariants}>
+              <span>ليس لديك حساب؟</span>
+              <span className="login-register-link login-register-disabled" aria-disabled="true">
+                <UserPlus size={17} />
+                إنشاء حساب
+              </span>
+            </motion.div>
+          </motion.form>
+
+          <motion.div className="login-footnote" variants={itemVariants}>
+            تسجيل الدخول يعمل لنفس حسابات العميل والتاجر والأدمن.
+          </motion.div>
+        </motion.section>
       </motion.div>
-    </div>
+    </main>
   );
 };
