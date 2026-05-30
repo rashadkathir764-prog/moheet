@@ -60,6 +60,7 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [registerNotice, setRegisterNotice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const login = useAuthStore((state) => state.login);
@@ -96,6 +97,7 @@ export const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setRegisterNotice('');
     setIsLoading(true);
 
     try {
@@ -111,6 +113,11 @@ export const Login: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCreateAccountClick = () => {
+    setError('');
+    setRegisterNotice('إنشاء الحساب غير متاح حاليًا، تواصل مع الإدارة');
   };
 
   return (
@@ -166,6 +173,16 @@ export const Login: React.FC = () => {
                   exit={{ opacity: 0, y: -8 }}
                 >
                   {error}
+                </motion.div>
+              )}
+              {registerNotice && (
+                <motion.div
+                  className="login-notice"
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                >
+                  {registerNotice}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -224,13 +241,17 @@ export const Login: React.FC = () => {
               )}
             </motion.button>
 
-            <motion.div className="login-register-row" variants={itemVariants}>
+            <div className="login-register-row">
               <span>ليس لديك حساب؟</span>
-              <span className="login-register-link login-register-disabled" aria-disabled="true">
+              <button
+                type="button"
+                className="login-register-button"
+                onClick={handleCreateAccountClick}
+              >
                 <UserPlus size={17} />
-                إنشاء حساب
-              </span>
-            </motion.div>
+                إنشاء حساب جديد
+              </button>
+            </div>
           </motion.form>
 
           <motion.div className="login-footnote" variants={itemVariants}>
