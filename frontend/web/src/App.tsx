@@ -9,6 +9,7 @@ import { useAuthStore } from './store/auth.store';
 import { featureFlags } from './config/features';
 
 const Login = lazy(() => import('./pages/Login/Login').then((module) => ({ default: module.Login })));
+const Register = lazy(() => import('./pages/Register/Register').then((module) => ({ default: module.Register })));
 const Storefront = lazy(() => import('./pages/Store/StorePages').then((module) => ({ default: module.Storefront })));
 const ProductDetailsPage = lazy(() => import('./pages/Store/ProductDetails').then((module) => ({ default: module.ProductDetailsPage })));
 const CartPage = lazy(() => import('./pages/Store/CartPage').then((module) => ({ default: module.CartPage })));
@@ -81,7 +82,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const path = location.pathname;
-    if (path.includes('/login')) {
+    if (path === '/register') {
+      document.title = 'إنشاء حساب — MOHEET | محيط';
+    } else if (path.includes('/login')) {
       document.title = 'تسجيل الدخول — MOHEET | محيط';
     } else if (path.startsWith('/admin')) {
       document.title = 'لوحة الإدارة — MOHEET | محيط';
@@ -103,6 +106,7 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/" element={<Navigate to="/store" replace />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/admin/login" element={<LoginRedirect />} />
         <Route path="/store/login" element={<LoginRedirect />} />
         <Route path="/store/checkout/login" element={<LoginRedirect returnTo="/store/checkout" />} />

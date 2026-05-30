@@ -44,8 +44,22 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface RegisterPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
 export interface AuthResponse {
   user: Pick<User, 'id' | 'email' | 'fullName' | 'role' | 'isVerified'>;
+  accessToken: string;
+}
+
+export interface RegisterResponse {
+  user: Pick<User, 'id' | 'email' | 'fullName' | 'role'> & {
+    isVerified?: boolean;
+  };
   accessToken: string;
 }
 
