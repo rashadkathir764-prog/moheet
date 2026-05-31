@@ -85,6 +85,32 @@ video,
 canvas,
 svg {
   max-width: 100%;
+  /* Prevent images from creating horizontal overflow */
+  height: auto;
+}
+
+/* ── Global mobile overflow protection ──────────────────────────
+   Applied after all component styles. Ensures any component that
+   mounts after API response (categories, products, user data)
+   never creates a document.documentElement.scrollWidth > innerWidth.
+   ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Prevent flex/grid items from overflowing their containers.
+     The key insight: grid/flex items have min-width: auto by default
+     which lets content push them wider than their container. */
+  .store-layout-wrapper *,
+  .store-main-content * {
+    min-width: 0;
+    /* Do NOT add max-width: 100% here globally — it breaks some layouts.
+       Instead we apply it only where needed in component CSS. */
+  }
+
+  /* Any element with a fixed or large min-width that mounts after data:
+     always clamp to viewport */
+  .store-layout-wrapper [style*="min-width"],
+  .store-main-content [style*="min-width"] {
+    min-width: min(var(--min-width, 0px), 100%) !important;
+  }
 }
 
 /* --- Premium Utilities --- */

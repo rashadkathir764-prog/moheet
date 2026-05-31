@@ -17,6 +17,9 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  /* CRITICAL: after categories/user load, children might try to overflow.
+     clip (not hidden) to avoid affecting sticky positioning */
+  overflow-x: clip;
 }
 
 .store-header-top {
@@ -72,6 +75,10 @@
   cursor: pointer;
   color: #FFFFFF;
   transition: all 0.2s ease;
+  /* CRITICAL: prevent city name from expanding this flex item */
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
 }
 
 .store-location:hover {
@@ -241,7 +248,10 @@
   gap: 20px;
   font-size: 14px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  /* CRITICAL: explicit width prevents category items from expanding container */
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;

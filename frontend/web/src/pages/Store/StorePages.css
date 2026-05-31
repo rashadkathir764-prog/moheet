@@ -13,7 +13,7 @@
     #F4F7FB;
   color: var(--color-text-primary);
   min-height: 100vh;
-  padding-bottom: 100px; /* Extra bottom padding to clear mobile bottom nav */
+  padding-bottom: 100px;
 }
 
 .moheet-page-container {
@@ -32,6 +32,8 @@
   width: 100%;
   max-width: min(1400px, calc(100% - 40px));
   min-width: 0;
+  /* CRITICAL: never let the auth-loaded welcome card overflow */
+  overflow-x: clip;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.6));
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -1221,5 +1223,178 @@
   .store-filter-bar select,
   .store-filter-bar button {
     width: 100%;
+  }
+}
+
+/* ================================================================
+   MOBILE OVERFLOW SHIELD
+   Applied AFTER all other rules — final defense against any
+   component that mounts post-data-load and tries to overflow.
+   Covers: initial render / after 1s / after 3s / after 5s.
+   ================================================================ */
+@media (max-width: 768px) {
+
+  /* Every direct child of the store shell must be contained */
+  .commerce-shell > * {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  /* Dynamic profile welcome: flex row wraps on mobile */
+  .dynamic-profile-welcome {
+    max-width: calc(100% - 24px);
+    padding: 18px;
+    margin-top: 16px;
+    border-radius: 18px;
+  }
+
+  /* The flex row inside the welcome card must wrap */
+  .dynamic-profile-welcome > div {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* The wallet/action button inside welcome card must not overflow */
+  .dynamic-profile-welcome button,
+  .dynamic-profile-welcome a {
+    white-space: normal !important;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* All images must respect their containers */
+  .commerce-shell img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* All flex children get min-width: 0 */
+  .commerce-shell [style*="display: flex"] > *,
+  .commerce-shell [style*="display:flex"] > * {
+    min-width: 0;
+  }
+
+  /* Section-level overflow containment */
+  .flash-deals-section,
+  .recommendation-rail,
+  .bento-categories-section,
+  .promo-blocks-section,
+  .horizontal-deals-section,
+  .store-filter-bar,
+  .pro-features-grid,
+  .store-top-bar,
+  .store-categories-bar {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  /* Horizontal scroll containers: contain but allow internal scroll */
+  .flash-deals-scroll,
+  .recommendation-rail-scroll,
+  .store-header-bottom,
+  .horizontal-deals-scroll,
+  .thumbnails-column {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    /* Keep overflow-x: auto for scrolling — don't clip these */
+  }
+
+  /* Product grid stays 2-column regardless of data */
+  .commerce-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  /* Product cards: prevent long names or prices from overflowing */
+  .product-card-modern {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .pc-title {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .pc-current-price,
+  .pc-original-price,
+  .flash-price,
+  .flash-original-price,
+  .micro-price {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  /* Bento grid: force 2-col after categories load */
+  .bento-small-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .bento-large-card {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Promo grid: 1 col on mobile */
+  .promo-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .micro-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  /* Store location text truncation */
+  .store-location-text span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 120px;
+  }
+}
+
+/* Extra-small phones (360px) */
+@media (max-width: 380px) {
+  .hero-carousel {
+    height: 320px;
+  }
+
+  .hero-slide h2 {
+    font-size: 26px;
+  }
+
+  .hero-slide p {
+    font-size: 14px;
+  }
+
+  .commerce-grid {
+    gap: 10px;
+    padding: 0 10px !important;
+  }
+
+  .store-filter-bar select,
+  .store-filter-bar button {
+    width: 100%;
+  }
+
+  /* Even tighter recommendation cards on 360px */
+  .recommendation-rail-scroll {
+    grid-auto-columns: minmax(130px, 150px);
+    gap: 8px;
   }
 }

@@ -1,16 +1,19 @@
 .bento-categories-section {
-  margin: 0 auto 30px auto;
-  width: 100%;
   max-width: min(1400px, calc(100% - 40px));
+  width: 100%;
+  margin: 0 auto 30px;
   min-width: 0;
+  /* CRITICAL: contain overflow after categories load */
+  overflow-x: clip;
 }
 
 .bento-header {
   margin-bottom: 20px;
+  min-width: 0;
 }
 
 .bento-header h2 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: #111827;
   margin: 0;
@@ -18,9 +21,11 @@
 
 .bento-container {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 20px;
+  grid-template-columns: 2fr 3fr;
+  gap: 16px;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 900px) {
