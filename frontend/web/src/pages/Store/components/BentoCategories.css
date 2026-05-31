@@ -79,6 +79,13 @@
   opacity: 0.9;
 }
 
+.bento-large-emoji {
+  font-size: 48px;
+  margin-bottom: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+
 .bento-shop-btn {
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
@@ -140,9 +147,12 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-weight: 800;
-  font-size: 20px;
   box-shadow: inset 0 -3px 0 rgba(0,0,0,0.1);
+}
+
+.bento-icon-text {
+  font-size: 28px;
+  line-height: 1;
 }
 
 .bento-cat-name {
