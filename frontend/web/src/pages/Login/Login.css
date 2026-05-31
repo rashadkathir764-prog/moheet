@@ -17,6 +17,8 @@ body:has(.login-page) #root {
     #f4f7fb;
   color: #0f172a;
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 .login-page,
@@ -37,6 +39,7 @@ body:has(.login-page) #root {
   border-radius: 18px;
   background: #ffffff;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  max-width: min(900px, 100%);
 }
 
 .login-brand-panel {
@@ -194,6 +197,7 @@ body:has(.login-page) #root {
   font-size: 15px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  min-width: 0;
 }
 
 .login-input:focus {
@@ -336,6 +340,7 @@ body:has(.login-page) #root {
 
   .login-shell {
     width: 100%;
+    max-width: 100%;
     min-height: 100vh;
     border: 0;
     border-radius: 0;
@@ -344,9 +349,34 @@ body:has(.login-page) #root {
 
   .login-brand-panel {
     padding: 20px;
+    min-height: 190px;
   }
 
   .login-card {
     justify-content: flex-start;
+    padding: 28px 18px;
+  }
+
+  .login-brand-content h1 {
+    font-size: 36px;
+  }
+
+  .login-brand-content p:last-child {
+    font-size: 14px;
+  }
+
+  .login-card-header h2 {
+    font-size: 30px;
+  }
+
+  .login-register-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .login-register-button {
+    justify-content: center;
   }
 }

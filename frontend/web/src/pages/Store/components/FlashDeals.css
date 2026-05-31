@@ -3,7 +3,9 @@
   border-radius: 20px;
   padding: 24px;
   margin: 0 auto 30px auto;
-  max-width: 1400px;
+  width: 100%;
+  max-width: min(1400px, calc(100% - 40px));
+  min-width: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 
@@ -42,6 +44,8 @@
   overflow-x: auto;
   padding-bottom: 12px;
   scrollbar-width: thin;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .flash-deals-scroll::-webkit-scrollbar {
@@ -60,6 +64,7 @@
   text-decoration: none;
   flex: 0 0 160px;
   display: block;
+  min-width: 0;
 }
 
 .flash-card-inner {
@@ -70,6 +75,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .flash-deal-card:hover .flash-card-inner {
@@ -121,6 +127,31 @@
   font-size: 18px;
   font-weight: 800;
   line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .flash-deals-section {
+    max-width: calc(100% - 24px);
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .flash-deals-title-group {
+    gap: 10px;
+  }
+
+  .flash-deal-card {
+    flex-basis: 138px;
+  }
+
+  .flash-card-image {
+    height: 118px;
+  }
+
+  .flash-price {
+    font-size: 16px;
+  }
 }
 
 .flash-original-price {

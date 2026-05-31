@@ -1,17 +1,45 @@
 .promo-blocks-section {
   margin: 0 auto 30px auto;
-  max-width: 1400px;
+  width: 100%;
+  max-width: min(1400px, calc(100% - 40px));
+  min-width: 0;
 }
 
 .promo-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+  min-width: 0;
 }
 
 @media (max-width: 768px) {
+  .promo-blocks-section {
+    max-width: calc(100% - 24px);
+  }
+
   .promo-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .promo-col {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .micro-cards-grid {
+    gap: 10px;
+  }
+
+  .reward-content p {
+    max-width: 100%;
+  }
+
+  .promo-reward::after {
+    width: 140px;
+    height: 140px;
+    bottom: -42px;
+    left: -42px;
   }
 }
 
@@ -20,6 +48,7 @@
   border-radius: 20px;
   padding: 24px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  min-width: 0;
 }
 
 .promo-col-header {
@@ -47,6 +76,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  min-width: 0;
 }
 
 .micro-card {
@@ -58,6 +88,7 @@
   padding: 12px;
   border-radius: 12px;
   transition: transform 0.2s ease;
+  min-width: 0;
 }
 
 .micro-card:hover {
@@ -87,6 +118,7 @@
   font-weight: 700;
   color: #111827;
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 /* Reward Center */
