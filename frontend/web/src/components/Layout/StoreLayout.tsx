@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { StoreHeader } from './StoreHeader';
+import { MobileBottomNav } from './MobileBottomNav';
 import { ShoppingCart, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HumanInterventionWidget } from '../../pages/Store/MoheetVisionFeatures';
@@ -48,18 +49,21 @@ export const StoreLayout: React.FC = () => {
         )}
       </AnimatePresence>
       <StoreHeader />
-      <main className="store-main-content" style={{ minHeight: 'calc(100vh - 350px)' }}>
+      <main className="store-main-content" style={{ minHeight: 'calc(100vh - 350px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <Outlet />
       </main>
       <StoreFooter />
 
-      {/* Sticky Cart (Floating Action Button) */}
-      <Link to="/store/cart" className="sticky-cart-fab" style={{ bottom: '90px' }}>
+      {/* Sticky Cart (Floating Action Button) - hidden on mobile, handled by bottom nav */}
+      <Link to="/store/cart" className="sticky-cart-fab sticky-cart-fab--desktop" style={{ bottom: '90px' }}>
         <ShoppingCart size={24} />
         {visibleCartCount > 0 && <span className="sticky-cart-badge">{visibleCartCount}</span>}
       </Link>
 
       {featureFlags.experimentalStoreFeatures && <HumanInterventionWidget />}
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   );
 };
