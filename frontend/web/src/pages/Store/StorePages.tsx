@@ -72,6 +72,11 @@ export function Storefront() {
     const q = searchParams.get('q') || undefined;
     const categoryId = searchParams.get('categoryId') || undefined;
 
+    const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadingProducts(true);
+    setStoreError('');
+
     productsApi.getAll({
       limit: 50,
       q,
@@ -81,8 +86,8 @@ export function Storefront() {
       tag: tagFilter || undefined,
     })
       .then((res) => {
+        if (controller.signal.aborted) return;
         setProducts(res.data || []);
-        setStoreError('');
         if (q && q.trim().length >= 2) {
           trackingApi.track('search', {
             searchQuery: q.trim(),
@@ -95,10 +100,14 @@ export function Storefront() {
         }
       })
       .catch(() => {
+        if (controller.signal.aborted) return;
         setProducts([]);
         setStoreError('تعذر تحميل المنتجات. حاول مرة أخرى.');
       })
-      .finally(() => setLoadingProducts(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingProducts(false);
+      });
+    return () => controller.abort();
   }, [searchParams, sortBy, brandFilter, tagFilter]);
 
   const addToCart = async (productId: string) => {
@@ -287,7 +296,17 @@ export function Storefront() {
           {loadingProducts ? (
             <ProductGridSkeleton count={8} />
           ) : products.length === 0 ? (
-            <div style={{ padding: '50px', textAlign: 'center', width: '100%', color: '#94a3b8' }}>لا توجد منتجات تطابق بحثك حالياً.</div>
+            <div style={{ padding: '60px 20px', textAlign: 'center', width: '100%' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+              <div style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+                {searchParams.get('q')
+                  ? `لا توجد منتجات مطابقة للبحث عن "${searchParams.get('q')}"`
+                  : 'لا توجد منتجات متاحة حالياً'}
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '14px' }}>
+                {searchParams.get('q') ? 'جرّب كلمة بحث مختلفة أو امسح البحث لعرض كل المنتجات.' : 'ارجع لاحقاً أو جرّب تصنيفاً مختلفاً.'}
+              </div>
+            </div>
           ) : (
             products.map((product, idx) => (
               <ProductCard 

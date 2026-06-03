@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
 import { categoriesApi } from '../../api/categories.api';
@@ -30,6 +30,11 @@ export const StoreHeader: React.FC = () => {
     return localStorage.getItem('moheet_delivery_city') || 'القاهرة';
   });
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Derive current search values from URL — these drive the controlled input
+  const urlQ = searchParams.get('q') || '';
+  const urlCat = searchParams.get('categoryId') || '';
 
   useEffect(() => {
     if (isAuthenticated && user?.role === 'CUSTOMER') {
@@ -61,6 +66,8 @@ export const StoreHeader: React.FC = () => {
     navigate('/login');
   };
 
+  // The input shows what the user typed; when URL changes (new nav), we reset to URL value.
+  // This avoids setState-in-effect by not having a sync effect at all.
   useEffect(() => {
     if (isAuthenticated && user?.role === 'CUSTOMER') {
       fetchCart();
@@ -72,8 +79,10 @@ export const StoreHeader: React.FC = () => {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (searchText) params.set('q', searchText);
-    if (selectedCategoryId) params.set('categoryId', selectedCategoryId);
+    const qToSearch = searchText || urlQ;
+    if (qToSearch) params.set('q', qToSearch);
+    const catToSearch = selectedCategoryId || urlCat;
+    if (catToSearch) params.set('categoryId', catToSearch);
     navigate(`/store?${params.toString()}`);
   };
 
@@ -98,7 +107,7 @@ export const StoreHeader: React.FC = () => {
         <div className="store-search-bar">
           <select 
             className="store-search-category" 
-            value={selectedCategoryId} 
+            value={selectedCategoryId || urlCat} 
             onChange={(e) => setSelectedCategoryId(e.target.value)}
           >
             <option value="">الكل</option>
@@ -111,11 +120,11 @@ export const StoreHeader: React.FC = () => {
               type="text" 
               className="store-search-input" 
               placeholder={semanticPlaceholder}
-              value={searchText}
+              value={searchText !== '' ? searchText : urlQ}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
-            {!searchText && (
+            {!searchText && !urlQ && (
               <Sparkles 
                 size={16} 
                 style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--color-accent)' }} 

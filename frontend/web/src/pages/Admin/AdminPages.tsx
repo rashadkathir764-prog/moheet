@@ -20,6 +20,7 @@ import type {
   Category,
   UpdateOrderStatusPayload,
   User,
+  CreateProductPayload,
 } from '../../types';
 import { PageTransition } from '../../components/Layout/PageTransition';
 import { AppDialog, type AppDialogProps } from '../../components/ui/AppDialog';
@@ -129,6 +130,25 @@ export function AdminDashboard() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const closeDialog = () => setDialog(null);
 
+  // ── Admin product form state ───────────────────────────────────────────────
+  const emptyProductForm = (): CreateProductPayload => ({
+    name: '',
+    description: '',
+    price: 0,
+    stockQuantity: 0,
+    categoryId: '',
+    brand: '',
+    tags: [],
+    isActive: true,
+    isFeatured: false,
+  });
+  const [productForm, setProductForm] = useState<CreateProductPayload>(emptyProductForm());
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productFormMsg, setProductFormMsg] = useState('');
+  const [productFormErr, setProductFormErr] = useState('');
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -143,6 +163,87 @@ export function AdminDashboard() {
     commerceApi.vendors.all().then(setVendors);
     commerceApi.coupons.all().then(setCoupons);
     usersApi.getAll().then(setUsers).catch(() => setUsers([]));
+  };
+
+  const loadAllCategories = () => {
+    categoriesApi.getAll().then((res) => setAllCategories(res || [])).catch(() => {});
+  };
+
+  const openCreateProduct = () => {
+    setEditingProductId(null);
+    setProductForm(emptyProductForm());
+    setProductFormMsg('');
+    setProductFormErr('');
+    setShowProductForm(true);
+    loadAllCategories();
+  };
+
+  const openEditProduct = (prod: Product) => {
+    setEditingProductId(prod.id);
+    setProductForm({
+      name: prod.name,
+      description: prod.description || '',
+      price: prod.price,
+      stockQuantity: prod.stockQuantity,
+      categoryId: prod.category?.id || '',
+      brand: prod.brand || '',
+      tags: prod.tags || [],
+      isActive: prod.isActive,
+      isFeatured: prod.isFeatured,
+    });
+    setProductFormMsg('');
+    setProductFormErr('');
+    setShowProductForm(true);
+    loadAllCategories();
+  };
+
+  const cancelProductForm = () => {
+    setShowProductForm(false);
+    setEditingProductId(null);
+    setProductForm(emptyProductForm());
+    setProductFormMsg('');
+    setProductFormErr('');
+  };
+
+  const submitProductForm = async () => {
+    setProductFormErr('');
+    setProductFormMsg('');
+    if (!productForm.name.trim()) {
+      setProductFormErr('أدخل اسم المنتج.');
+      return;
+    }
+    if (!productForm.categoryId) {
+      setProductFormErr('اختر القسم الذي ينتمي إليه المنتج');
+      return;
+    }
+    if (Number(productForm.price) <= 0) {
+      setProductFormErr('أدخل سعراً صحيحاً أكبر من صفر.');
+      return;
+    }
+    try {
+      const payload: CreateProductPayload = {
+        ...productForm,
+        name: productForm.name.trim(),
+        description: productForm.description?.trim() || undefined,
+        brand: productForm.brand?.trim() || undefined,
+        tags: productForm.tags?.map((t) => t.trim()).filter(Boolean),
+        price: Number(productForm.price),
+        stockQuantity: Number(productForm.stockQuantity),
+      };
+      if (editingProductId) {
+        await productsApi.update(editingProductId, payload);
+        setProductFormMsg('تم تحديث المنتج بنجاح.');
+      } else {
+        await productsApi.create(payload);
+        setProductFormMsg('تم إنشاء المنتج بنجاح.');
+      }
+      productsApi.getAll({ limit: 100 }).then((res) => setProducts(res.data || []));
+      setShowProductForm(false);
+      setEditingProductId(null);
+      setProductForm(emptyProductForm());
+    } catch (err: unknown) {
+      setProductFormErr(extractApiError(err));
+    }
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -204,7 +305,8 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (isProducts) {
-      productsApi.getAll({ limit: 100 }).then((res) => setProducts(res.data || []));
+      productsApi.getAll({ limit: 100, includeInactive: true }).then((res) => setProducts(res.data || []));
+      loadAllCategories();
     }
     if (isCategories) {
       categoriesApi.getAll().then((res) => setCategories(res || []));
@@ -337,15 +439,132 @@ export function AdminDashboard() {
 
       {isProducts && (
         <section className="dashboard-section">
-          <h2>قائمة المنتجات المتاحة بالسوق ({products.length})</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ margin: 0 }}>قائمة المنتجات ({products.length})</h2>
+            <button
+              onClick={openCreateProduct}
+              style={{ background: '#007600', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              + إضافة منتج جديد
+            </button>
+          </div>
+
+          {/* Admin Product Form */}
+          {showProductForm && (
+            <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px', marginBottom: '20px', background: '#f8fafc' }}>
+              <h3 style={{ margin: '0 0 16px', color: '#0f1111' }}>
+                {editingProductId ? 'تعديل المنتج' : 'إضافة منتج جديد'}
+              </h3>
+              {productFormErr && (
+                <div style={{ background: '#fbe2e2', color: '#c62828', padding: '10px 14px', borderRadius: '4px', marginBottom: '12px', fontWeight: 600 }}>
+                  {productFormErr}
+                </div>
+              )}
+              {productFormMsg && (
+                <div style={{ background: '#e2fbe8', color: '#1b5e20', padding: '10px 14px', borderRadius: '4px', marginBottom: '12px', fontWeight: 600 }}>
+                  {productFormMsg}
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '4px' }}>اسم المنتج *</label>
+                  <input
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
+                    value={productForm.name}
+                    onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="اسم المنتج"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '4px' }}>السعر (ر.ي) *</label>
+                  <input
+                    type="number" min="0"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
+                    value={productForm.price || ''}
+                    onChange={(e) => setProductForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                    placeholder="السعر"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '4px' }}>المخزون</label>
+                  <input
+                    type="number" min="0"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
+                    value={productForm.stockQuantity || ''}
+                    onChange={(e) => setProductForm((f) => ({ ...f, stockQuantity: Number(e.target.value) }))}
+                    placeholder="الكمية في المخزون"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#c62828', marginBottom: '4px', fontWeight: 600 }}>القسم (تصنيف المنتج) *</label>
+                  <select
+                    style={{ width: '100%', padding: '8px', border: productForm.categoryId ? '1px solid #cbd5e1' : '2px solid #c62828', borderRadius: '4px', boxSizing: 'border-box', background: '#fff' }}
+                    value={productForm.categoryId}
+                    onChange={(e) => setProductForm((f) => ({ ...f, categoryId: e.target.value }))}
+                  >
+                    <option value="">-- اختر القسم --</option>
+                    {allCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                  {!productForm.categoryId && (
+                    <span style={{ fontSize: '12px', color: '#c62828' }}>اختر القسم الذي ينتمي إليه المنتج</span>
+                  )}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '4px' }}>العلامة التجارية</label>
+                  <input
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
+                    value={productForm.brand || ''}
+                    onChange={(e) => setProductForm((f) => ({ ...f, brand: e.target.value }))}
+                    placeholder="العلامة التجارية"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '4px' }}>الوسوم (مفصولة بفاصلة)</label>
+                  <input
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box' }}
+                    value={productForm.tags?.join(', ') || ''}
+                    onChange={(e) => setProductForm((f) => ({ ...f, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) }))}
+                    placeholder="وسوم مفصولة بفواصل"
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#475569', marginBottom: '4px' }}>وصف المنتج</label>
+                <textarea
+                  style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '4px', boxSizing: 'border-box', resize: 'vertical' }}
+                  rows={3}
+                  value={productForm.description || ''}
+                  onChange={(e) => setProductForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="وصف المنتج..."
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                <button
+                  onClick={submitProductForm}
+                  style={{ background: '#007600', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  {editingProductId ? 'حفظ التعديلات' : 'إنشاء المنتج'}
+                </button>
+                <button
+                  onClick={cancelProductForm}
+                  style={{ background: '#e2e8f0', color: '#1e293b', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          )}
+
           <table className="dashboard-table">
             <thead>
               <tr>
                 <th>اسم المنتج</th>
-                <th>الفئة</th>
+                <th>القسم</th>
                 <th>السعر</th>
-                <th>المخزون المتوفر</th>
-                <th>حالة التفعيل</th>
+                <th>المخزون</th>
+                <th>الحالة</th>
                 <th>الإجراءات</th>
               </tr>
             </thead>
@@ -356,7 +575,11 @@ export function AdminDashboard() {
                 products.map((product) => (
                   <tr key={product.id}>
                     <td style={{ fontWeight: 'bold' }}>{product.name}</td>
-                    <td>{product.category?.name || 'عام'}</td>
+                    <td>
+                      <span style={{ background: '#e3f2fd', color: '#0d47a1', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
+                        {product.category?.name || '—'}
+                      </span>
+                    </td>
                     <td style={{ color: '#B12704', fontWeight: 'bold' }}>{money(product.price)}</td>
                     <td>{product.stockQuantity}</td>
                     <td>
@@ -365,7 +588,20 @@ export function AdminDashboard() {
                       </span>
                     </td>
                     <td>
-                      <button onClick={() => handleDeleteProduct(product.id)} style={{ background: '#d9534f', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>حذف</button>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={() => openEditProduct(product)}
+                          style={{ background: '#ffa41c', color: '#000', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          style={{ background: '#d9534f', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                        >
+                          حذف
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -108,9 +108,8 @@ export function VendorDashboard() {
   ).slice(0, 8);
 
   const createProduct = async () => {
-    const categoryId = productForm.categoryId || categories[0]?.id;
-    if (!categoryId) {
-      setMessage('لا توجد تصنيفات لإنشاء منتج');
+    if (!productForm.categoryId) {
+      setMessage('خطأ: اختر القسم الذي ينتمي إليه المنتج');
       return;
     }
     if (!productForm.name.trim() || Number(productForm.price) <= 0) {
@@ -126,7 +125,7 @@ export function VendorDashboard() {
         tags: productForm.tags?.map((tag) => tag.trim()).filter(Boolean),
         price: Number(productForm.price),
         stockQuantity: Number(productForm.stockQuantity),
-        categoryId,
+        categoryId: productForm.categoryId,
       });
 
       if (selectedFile) {
@@ -146,7 +145,7 @@ export function VendorDashboard() {
         description: '',
         price: 0,
         stockQuantity: 0,
-        categoryId,
+        categoryId: productForm.categoryId,
         brand: '',
         tags: [],
         isActive: true,
@@ -185,9 +184,8 @@ export function VendorDashboard() {
 
   const updateProduct = async () => {
     if (!editingProductId) return;
-    const categoryId = productForm.categoryId || categories[0]?.id;
-    if (!categoryId) {
-      setMessage('لا توجد تصنيفات لتحديث منتج');
+    if (!productForm.categoryId) {
+      setMessage('خطأ: اختر القسم الذي ينتمي إليه المنتج');
       return;
     }
     if (!productForm.name.trim() || Number(productForm.price) <= 0) {
@@ -203,7 +201,7 @@ export function VendorDashboard() {
         tags: productForm.tags?.map((tag) => tag.trim()).filter(Boolean),
         price: Number(productForm.price),
         stockQuantity: Number(productForm.stockQuantity),
-        categoryId,
+        categoryId: productForm.categoryId,
       });
 
       if (selectedFile) {
@@ -224,7 +222,7 @@ export function VendorDashboard() {
         description: '',
         price: 0,
         stockQuantity: 0,
-        categoryId,
+        categoryId: productForm.categoryId,
         brand: '',
         tags: [],
         isActive: true,
@@ -401,16 +399,23 @@ export function VendorDashboard() {
                   onChange={(event) => setProductForm((current) => ({ ...current, brand: event.target.value }))}
                   placeholder="العلامة التجارية"
                 />
-                <select
-                  className="dashboard-input"
-                  value={productForm.categoryId}
-                  onChange={(event) => setProductForm((current) => ({ ...current, categoryId: event.target.value }))}
-                >
-                  <option value="">اختر التصنيف</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '12px', color: '#c62828', fontWeight: 600 }}>القسم (تصنيف المنتج) *</label>
+                  <select
+                    className="dashboard-input"
+                    value={productForm.categoryId}
+                    onChange={(event) => setProductForm((current) => ({ ...current, categoryId: event.target.value }))}
+                    style={{ border: productForm.categoryId ? undefined : '2px solid #c62828' }}
+                  >
+                    <option value="">-- اختر القسم --</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                  {!productForm.categoryId && (
+                    <span style={{ fontSize: '11px', color: '#c62828' }}>اختر القسم الذي ينتمي إليه المنتج</span>
+                  )}
+                </div>
                 <input
                   className="dashboard-input"
                   value={productForm.tags?.join(', ') || ''}
@@ -453,6 +458,7 @@ export function VendorDashboard() {
                     <th>الصورة</th>
                     <th>المنتج</th>
                     <th>السعر</th>
+                    <th>القسم</th>
                     <th>المخزون</th>
                     <th>الحالة</th>
                     <th>الإجراءات</th>
@@ -460,7 +466,7 @@ export function VendorDashboard() {
                 </thead>
                 <tbody>
                   {products.length === 0 ? (
-                    <tr><td colSpan={6} className="dashboard-note" style={{ textAlign: 'center' }}>لا توجد منتجات بعد.</td></tr>
+                    <tr><td colSpan={7} className="dashboard-note" style={{ textAlign: 'center' }}>لا توجد منتجات بعد.</td></tr>
                   ) : (
                     products.map((prod) => (
                       <tr key={prod.id}>
@@ -477,6 +483,11 @@ export function VendorDashboard() {
                         </td>
                         <td>{prod.name}</td>
                         <td style={{ color: 'var(--color-accent)' }}>{prod.price} ر.ي</td>
+                        <td>
+                          <span style={{ background: '#e3f2fd', color: '#0d47a1', padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600 }}>
+                            {prod.category?.name || '—'}
+                          </span>
+                        </td>
                         <td>{prod.stockQuantity}</td>
                         <td><span className="status-pill">{prod.isActive ? 'نشط' : 'غير نشط'}</span></td>
                         <td>
