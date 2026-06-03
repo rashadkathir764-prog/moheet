@@ -41,6 +41,9 @@ export function Storefront() {
   const [walletOpen, setWalletOpen] = useState(false);
   const { user, isAuthenticated } = useAuthStore();
   const globalAddToCart = useCartStore((state) => state.addToCart);
+  const searchQuery = searchParams.get('q')?.trim() ?? '';
+  const categoryId = searchParams.get('categoryId') ?? '';
+  const isSearchMode = searchQuery.length > 0;
 
   const slides = useMemo(() => [
     { bg: 'radial-gradient(circle at 80% 50%, var(--color-thrill) 0%, var(--color-background) 70%)', title: 'عروض مذهلة!', subtitle: 'اكتشف أفضل الخصومات على المنتجات الإلكترونية بأسعار لا تقبل المنافسة.' },
@@ -69,9 +72,6 @@ export function Storefront() {
   }, []);
 
   useEffect(() => {
-    const q = searchParams.get('q') || undefined;
-    const categoryId = searchParams.get('categoryId') || undefined;
-
     const controller = new AbortController();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingProducts(true);
@@ -79,8 +79,8 @@ export function Storefront() {
 
     productsApi.getAll({
       limit: 50,
-      q,
-      categoryId,
+      q: searchQuery || undefined,
+      categoryId: categoryId || undefined,
       sortBy,
       brand: brandFilter || undefined,
       tag: tagFilter || undefined,
@@ -88,10 +88,10 @@ export function Storefront() {
       .then((res) => {
         if (controller.signal.aborted) return;
         setProducts(res.data || []);
-        if (q && q.trim().length >= 2) {
+        if (searchQuery.length >= 2) {
           trackingApi.track('search', {
-            searchQuery: q.trim(),
-            categoryId,
+            searchQuery,
+            categoryId: categoryId || undefined,
             metadata: {
               sortBy,
               resultCount: res.data?.length ?? 0,
@@ -108,7 +108,7 @@ export function Storefront() {
         if (!controller.signal.aborted) setLoadingProducts(false);
       });
     return () => controller.abort();
-  }, [searchParams, sortBy, brandFilter, tagFilter]);
+  }, [searchQuery, categoryId, sortBy, brandFilter, tagFilter]);
 
   const addToCart = async (productId: string) => {
     if (!isAuthenticated) {
@@ -155,8 +155,7 @@ export function Storefront() {
     <PageTransition>
     <div className="commerce-shell">
       
-      {/* 1. Dynamic Profile Welcome */}
-      {user && (
+      {!isSearchMode && user && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }} 
           animate={{ opacity: 1, y: 0 }} 
@@ -179,46 +178,48 @@ export function Storefront() {
         </motion.div>
       )}
 
-      {/* 3. Bento Categories */}
-      <BentoCategories categories={categories} />
+      {!isSearchMode && (
+        <>
+          <BentoCategories categories={categories} />
 
-      {/* 4. Hero Carousel */}
-      <section className="hero-carousel" style={{ position: 'relative', overflow: 'hidden' }}>
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={currentSlide}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-            className={`hero-slide active`} 
-            style={{ background: slides[currentSlide].bg }}
-          >
-            <div className="hero-gradient-orb" />
-            <div className="hero-glass-overlay"></div>
-            <div className="hero-content">
-              <motion.h2 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-                {slides[currentSlide].title}
-              </motion.h2>
-              <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
-                {slides[currentSlide].subtitle}
-              </motion.p>
-              <motion.button 
-                initial={{ y: 20, opacity: 0 }} 
-                animate={{ y: 0, opacity: 1 }} 
-                transition={{ delay: 0.6 }}
-                className="hero-cta-btn"
-                onClick={() => document.getElementById('main-store-grid')?.scrollIntoView({ behavior: 'smooth' })}
+          <section className="hero-carousel" style={{ position: 'relative', overflow: 'hidden' }}>
+            <AnimatePresence mode="wait">
+              <motion.div 
+                key={currentSlide}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8, ease: "easeInOut" }}
+                className={`hero-slide active`} 
+                style={{ background: slides[currentSlide].bg }}
               >
-                تسوق الآن
-              </motion.button>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-        <button className="hero-nav-btn hero-prev" onClick={() => setCurrentSlide(s => s === 0 ? slides.length - 1 : s - 1)}>‹</button>
-        <button className="hero-nav-btn hero-next" onClick={() => setCurrentSlide(s => (s + 1) % slides.length)}>›</button>
-        <div className="hero-fade-bottom"></div>
-      </section>
+                <div className="hero-gradient-orb" />
+                <div className="hero-glass-overlay"></div>
+                <div className="hero-content">
+                  <motion.h2 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
+                    {slides[currentSlide].title}
+                  </motion.h2>
+                  <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
+                    {slides[currentSlide].subtitle}
+                  </motion.p>
+                  <motion.button 
+                    initial={{ y: 20, opacity: 0 }} 
+                    animate={{ y: 0, opacity: 1 }} 
+                    transition={{ delay: 0.6 }}
+                    className="hero-cta-btn"
+                    onClick={() => document.getElementById('main-store-grid')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    تسوق الآن
+                  </motion.button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+            <button className="hero-nav-btn hero-prev" onClick={() => setCurrentSlide(s => s === 0 ? slides.length - 1 : s - 1)}>‹</button>
+            <button className="hero-nav-btn hero-next" onClick={() => setCurrentSlide(s => (s + 1) % slides.length)}>›</button>
+            <div className="hero-fade-bottom"></div>
+          </section>
+        </>
+      )}
 
       {featureFlags.experimentalStoreFeatures && (
         <MoheetWallet isOpen={walletOpen} onClose={() => setWalletOpen(false)} />
@@ -227,34 +228,40 @@ export function Storefront() {
       {message && <div className="commerce-section" style={{ maxWidth: '1400px', margin: '0 auto 20px', padding: '0 20px', color: '#1DB954' }}>{message}</div>}
       {storeError && <div className="commerce-section" role="alert" style={{ maxWidth: '1400px', margin: '0 auto 20px', padding: '0 20px', color: '#B91C1C' }}>{storeError}</div>}
 
-      {/* 5. Flash Deals */}
-      <FlashDeals products={baseProducts.slice(0, 10)} />
+      {!isSearchMode && (
+        <>
+          <FlashDeals products={baseProducts.slice(0, 10)} />
 
-      <RecommendationRail
-        title="مقترحة لك"
-        products={personalProducts}
-        onAddToCart={addToCart}
-        onAddFavorite={addFavorite}
-        trackingSource="for_you"
-        trackingPage="store"
-      />
+          <RecommendationRail
+            title="مقترحة لك"
+            products={personalProducts}
+            onAddToCart={addToCart}
+            onAddFavorite={addFavorite}
+            trackingSource="for_you"
+            trackingPage="store"
+          />
 
-      <RecommendationRail
-        title="الأكثر رواجًا الآن"
-        products={trendingProducts}
-        onAddToCart={addToCart}
-        onAddFavorite={addFavorite}
-        trackingSource="trending"
-        trackingPage="store"
-      />
+          <RecommendationRail
+            title="الأكثر رواجًا الآن"
+            products={trendingProducts}
+            onAddToCart={addToCart}
+            onAddFavorite={addFavorite}
+            trackingSource="trending"
+            trackingPage="store"
+          />
 
-      {/* 6. Promo Blocks */}
-      <PromoBlocks products={baseProducts.slice(10, 20)} />
+          <PromoBlocks products={baseProducts.slice(10, 20)} />
+        </>
+      )}
 
       {/* 8. Main Content Area (Store Grid) */}
       <div className="store-main-content" id="main-store-grid">
         <div className="store-top-bar" style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto 20px' }}>
-          <span>عرض {products.length} نتيجة متوفرة</span>
+          <span>
+            {isSearchMode
+              ? `نتائج البحث عن: ${searchQuery}`
+              : `عرض ${products.length} نتيجة متوفرة`}
+          </span>
           <div>
             <label style={{ marginLeft: '10px' }}>فرز حسب:</label>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value as ProductSortBy)}>
@@ -300,11 +307,11 @@ export function Storefront() {
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
               <div style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
                 {searchParams.get('q')
-                  ? `لا توجد منتجات مطابقة للبحث عن "${searchParams.get('q')}"`
+                  ? 'لا توجد منتجات مطابقة للبحث'
                   : 'لا توجد منتجات متاحة حالياً'}
               </div>
               <div style={{ color: '#94a3b8', fontSize: '14px' }}>
-                {searchParams.get('q') ? 'جرّب كلمة بحث مختلفة أو امسح البحث لعرض كل المنتجات.' : 'ارجع لاحقاً أو جرّب تصنيفاً مختلفاً.'}
+                {searchParams.get('q') ? `لم نجد نتائج لـ "${searchQuery}". جرّب كلمة بحث مختلفة أو امسح البحث لعرض كل المنتجات.` : 'ارجع لاحقاً أو جرّب تصنيفاً مختلفاً.'}
               </div>
             </div>
           ) : (

@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, SelectQueryBuilder, QueryRunner } from 'typeorm';
+import { Repository, Brackets, DataSource, SelectQueryBuilder, QueryRunner } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { ProductImage } from './entities/product-image.entity';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -32,6 +32,44 @@ export interface PaginatedResult<T> {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   };
+}
+
+const ARABIC_DIACRITICS_REGEX = /[\u064B-\u065F\u0670]/g;
+
+function normalizeArabicSearch(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(ARABIC_DIACRITICS_REGEX, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, ' ');
+}
+
+function buildArabicSearchTerms(input: string): string[] {
+  const terms = new Set<string>();
+  const trimmed = input.trim();
+
+  if (!trimmed) return [];
+
+  terms.add(trimmed);
+  terms.add(normalizeArabicSearch(trimmed));
+
+  for (const term of Array.from(terms)) {
+    terms.add(term.replace(/ة/g, 'ه'));
+    terms.add(term.replace(/ه/g, 'ة'));
+    terms.add(term.replace(/ى/g, 'ي'));
+    terms.add(term.replace(/ي/g, 'ى'));
+    terms.add(term.replace(/[أإآا]/g, 'ا'));
+    terms.add(term.replace(/[أإآا]/g, 'أ'));
+    terms.add(term.replace(/[أإآا]/g, 'إ'));
+    terms.add(term.replace(/[أإآا]/g, 'آ'));
+  }
+
+  return Array.from(terms)
+    .map((term) => term.trim())
+    .filter(Boolean);
 }
 
 @Injectable()
@@ -172,23 +210,51 @@ export class ProductsService {
      * الحد الأدنى للتشابه: 0.1 (يمكن رفعه لتقليل النتائج غير الدقيقة)
      */
     if (q && q.trim().length >= 2) {
-      qb.andWhere(
-        `(
-          product.name ILIKE :search
-          OR product.description ILIKE :search
-          OR product.sku ILIKE :search
-        )`,
-        { search: `%${q.trim()}%` },
+      const searchTerms = buildArabicSearchTerms(q);
+      const searchParams = searchTerms.reduce<Record<string, string>>(
+        (params, term, index) => {
+          params[`search${index}`] = `%${term}%`;
+          return params;
+        },
+        {},
       );
+
+      qb.andWhere(
+        new Brackets((searchQb) => {
+          searchTerms.forEach((_, index) => {
+            const paramName = `search${index}`;
+            const condition = `(
+              product.name ILIKE :${paramName}
+              OR COALESCE(product.description, '') ILIKE :${paramName}
+              OR COALESCE(product.sku, '') ILIKE :${paramName}
+              OR ${this.normalizedArabicColumnSql('product.name')} ILIKE :${paramName}
+              OR ${this.normalizedArabicColumnSql('product.description')} ILIKE :${paramName}
+              OR ${this.normalizedArabicColumnSql('product.sku')} ILIKE :${paramName}
+            )`;
+
+            if (index === 0) {
+              searchQb.where(condition);
+            } else {
+              searchQb.orWhere(condition);
+            }
+          });
+        }),
+      ).setParameters(searchParams);
 
       // إضافة relevance score للترتيب بالأقرب للبحث
       qb.addSelect(
         `GREATEST(
           similarity(product.name, :qTrgm),
-          similarity(COALESCE(product.description, ''), :qTrgm)
+          similarity(COALESCE(product.description, ''), :qTrgm),
+          similarity(COALESCE(product.sku, ''), :qTrgm),
+          similarity(${this.normalizedArabicColumnSql('product.name')}, :qNormalizedTrgm),
+          similarity(${this.normalizedArabicColumnSql('product.description')}, :qNormalizedTrgm),
+          similarity(${this.normalizedArabicColumnSql('product.sku')}, :qNormalizedTrgm)
         )`,
         'relevance',
-      ).setParameter('qTrgm', q.trim());
+      )
+        .setParameter('qTrgm', q.trim())
+        .setParameter('qNormalizedTrgm', normalizeArabicSearch(q));
     }
 
     // ─── الترتيب (Sorting) ───────────────────────────────────────────────
@@ -478,6 +544,26 @@ export class ProductsService {
   // ─────────────────────────────────────────────────────────────────────────
   // 🔧 دوال مساعدة خاصة
   // ─────────────────────────────────────────────────────────────────────────
+
+  private normalizedArabicColumnSql(column: string): string {
+    return `REGEXP_REPLACE(
+      TRIM(
+        REGEXP_REPLACE(
+          REPLACE(
+            TRANSLATE(LOWER(COALESCE(${column}, '')), 'أإآى', 'اااي'),
+            'ة',
+            'ه'
+          ),
+          '[ًٌٍَُِّْٰ]',
+          '',
+          'g'
+        )
+      ),
+      '[[:space:]]+',
+      ' ',
+      'g'
+    )`;
+  }
 
   /**
    * توليد slug فريد من اسم المنتج

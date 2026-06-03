@@ -24,6 +24,7 @@ export const StoreHeader: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [categorySelectedForSearch, setCategorySelectedForSearch] = useState(false);
   const [semanticPlaceholder, setSemanticPlaceholder] = useState(SEARCH_PLACEHOLDERS[0]);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [deliveryCity, setDeliveryCity] = useState(() => {
@@ -40,6 +41,7 @@ export const StoreHeader: React.FC = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchText(searchParams.get('q') ?? '');
     setSelectedCategoryId(searchParams.get('categoryId') ?? '');
+    setCategorySelectedForSearch(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.toString()]);
 
@@ -87,7 +89,9 @@ export const StoreHeader: React.FC = () => {
     const trimmed = searchText.trim();
 
     if (trimmed) params.set('q', trimmed);
-    if (selectedCategoryId) params.set('categoryId', selectedCategoryId);
+    if (selectedCategoryId && (!trimmed || categorySelectedForSearch)) {
+      params.set('categoryId', selectedCategoryId);
+    }
 
     navigate(`/store${params.toString() ? `?${params.toString()}` : ''}`);
   };
@@ -95,6 +99,7 @@ export const StoreHeader: React.FC = () => {
   const handleClear = () => {
     setSearchText('');
     setSelectedCategoryId('');
+    setCategorySelectedForSearch(false);
     navigate('/store');
   };
 
@@ -122,7 +127,10 @@ export const StoreHeader: React.FC = () => {
           <select 
             className="store-search-category" 
             value={selectedCategoryId} 
-            onChange={(e) => setSelectedCategoryId(e.target.value)}
+            onChange={(e) => {
+              setSelectedCategoryId(e.target.value);
+              setCategorySelectedForSearch(true);
+            }}
             aria-label="تصفية حسب القسم"
           >
             <option value="">الكل</option>
