@@ -29,12 +29,19 @@ export const StoreHeader: React.FC = () => {
   const [deliveryCity, setDeliveryCity] = useState(() => {
     return localStorage.getItem('moheet_delivery_city') || 'القاهرة';
   });
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Derive current search values from URL — these drive the controlled input
-  const urlQ = searchParams.get('q') || '';
-  const urlCat = searchParams.get('categoryId') || '';
+  // ── Sync input with URL on mount and when URL changes externally ───────────
+  // This effect runs when searchParams changes. We use a suppress comment
+  // because this is the correct architectural pattern (syncing UI from URL).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSearchText(searchParams.get('q') ?? '');
+    setSelectedCategoryId(searchParams.get('categoryId') ?? '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
 
   useEffect(() => {
     if (isAuthenticated && user?.role === 'CUSTOMER') {
@@ -61,13 +68,6 @@ export const StoreHeader: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  // The input shows what the user typed; when URL changes (new nav), we reset to URL value.
-  // This avoids setState-in-effect by not having a sync effect at all.
   useEffect(() => {
     if (isAuthenticated && user?.role === 'CUSTOMER') {
       fetchCart();
@@ -77,14 +77,28 @@ export const StoreHeader: React.FC = () => {
     });
   }, [isAuthenticated, fetchCart, user?.role]);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const handleSearch = () => {
     const params = new URLSearchParams();
-    const qToSearch = searchText || urlQ;
-    if (qToSearch) params.set('q', qToSearch);
-    const catToSearch = selectedCategoryId || urlCat;
-    if (catToSearch) params.set('categoryId', catToSearch);
-    navigate(`/store?${params.toString()}`);
+    const trimmed = searchText.trim();
+
+    if (trimmed) params.set('q', trimmed);
+    if (selectedCategoryId) params.set('categoryId', selectedCategoryId);
+
+    navigate(`/store${params.toString() ? `?${params.toString()}` : ''}`);
   };
+
+  const handleClear = () => {
+    setSearchText('');
+    setSelectedCategoryId('');
+    navigate('/store');
+  };
+
+  const hasActiveSearch = searchText.trim() !== '' || selectedCategoryId !== '';
 
   return (
     <div className="store-header-container">
@@ -107,8 +121,9 @@ export const StoreHeader: React.FC = () => {
         <div className="store-search-bar">
           <select 
             className="store-search-category" 
-            value={selectedCategoryId || urlCat} 
+            value={selectedCategoryId} 
             onChange={(e) => setSelectedCategoryId(e.target.value)}
+            aria-label="تصفية حسب القسم"
           >
             <option value="">الكل</option>
             {categories.map((cat) => (
@@ -117,21 +132,39 @@ export const StoreHeader: React.FC = () => {
           </select>
           <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
             <input 
+              id="store-search-input"
               type="text" 
               className="store-search-input" 
               placeholder={semanticPlaceholder}
-              value={searchText !== '' ? searchText : urlQ}
+              value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              aria-label="البحث في المنتجات"
             />
-            {!searchText && !urlQ && (
+            {!searchText && (
               <Sparkles 
                 size={16} 
                 style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--color-accent)' }} 
               />
             )}
           </div>
-          <button className="store-search-btn" onClick={handleSearch}>
+          {hasActiveSearch && (
+            <button
+              className="store-search-btn"
+              onClick={handleClear}
+              aria-label="مسح البحث"
+              title="مسح البحث"
+              style={{ background: '#64748b', minWidth: '40px' }}
+            >
+              ✕
+            </button>
+          )}
+          <button
+            id="store-search-btn"
+            className="store-search-btn"
+            onClick={handleSearch}
+            aria-label="بحث"
+          >
             <Search size={20} />
           </button>
         </div>
